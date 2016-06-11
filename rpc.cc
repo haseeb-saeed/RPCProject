@@ -4,6 +4,9 @@
  * This implements the RPC library.
  */
 
+#include "rpc.h"
+using namespace std;
+
 // Called by server
 int rpcInit() {
 
@@ -21,7 +24,10 @@ int rpcInit() {
 
 // Called by client
 int rpcCall(char* name, int* argTypes, void** args) {
-    
+   
+    // Maybe it would be better to only connect to the
+    // binder once instead of every time we do an RPC?
+ 
     // TODO:
     // Create socket and connect to binder
     // If socket creation/connection fails, return error
@@ -34,7 +40,6 @@ int rpcCall(char* name, int* argTypes, void** args) {
     // Send EXECUTE to the server
     // If reply is SERVER_FAILURE, return the failure code
     // Copy reply arguments to args
-
     return 0;
 }
 
