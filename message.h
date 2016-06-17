@@ -1,34 +1,30 @@
-#ifndef __REQUEST_H__
-#define __REQUEST_H__
+#ifndef __MESSAGE_H__
+#define __MESSAGE_H__
 
 #include <utility>
 
-namespace request {
+namespace message {
 
-// Request types
-enum Request {
+// Message types
+enum MessageType {
     REGISTER,
-    LOC_REQUEST,
-    EXECUTE,
-    TERMINATE
-};
-
-// Response types
-enum Response {
     REGISTER_SUCCESS,
     REGISTER_FAILURE,
+    LOC_REQUEST,
     LOC_SUCCESS,
     LOC_FAILURE,
+    EXECUTE,
     EXECUTE_SUCCESS,
-    EXECUTE_FAILURE
+    EXECUTE_FAILURE,
+    TERMINATE
 };
 
 // Returns a tuple of the <length, request type>
 // A pair with length <= 0 indicates error/connection closed
-std::pair<int, Request> getHeader(int socket);
+std::pair<int, MessageType> getHeader(int socket);
 
 // TODO:
 // Add functions to parse each type of response message
 }
 
-#endif // __REQUEST_H__
+#endif // __MESSAGE_H__

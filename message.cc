@@ -2,13 +2,13 @@
 
 #include <sys/socket.h>
 
-#include "request.h"
+#include "message.h"
 using namespace std;
 
-namespace request {
+namespace message {
 
-pair<int, Request> getHeader(int socket) {
-    pair<int, Request> ret;
+pair<int, MessageType> getHeader(int socket) {
+    pair<int, MessageType> ret;
 
     // Get the length of the message
     int status = recv(socket, &ret.first, sizeof(ret.first), MSG_WAITALL);
