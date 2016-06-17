@@ -1,6 +1,8 @@
 #ifndef __MESSAGE_H__
 #define __MESSAGE_H__
 
+#include <string>
+#include <memory>
 #include <utility>
 
 namespace message {
@@ -19,12 +21,25 @@ enum MessageType {
     TERMINATE
 };
 
+// Message info
+struct MessageInfo {
+    int length;             // The length of the message
+    MessageType type;       // The type of message
+    std::string name;       // The name of the machine/function
+    int code;               // The port or error code
+    int num_args;           // The number of args
+    std::unique_ptr<int[]> arg_types;         // The types of args
+    std::unique_ptr<int[]> args;              // The function arguments
+};
+
 // Returns a tuple of the <length, request type>
 // A pair with length <= 0 indicates error/connection closed
 std::pair<int, MessageType> getHeader(int socket);
 
-// TODO:
-// Add functions to parse each type of response message
+// Places the message body into the struct
+// Returns < 0 for errors
+int getMessage(int socket, MessageInfo& info);
+
 }
 
 #endif // __MESSAGE_H__

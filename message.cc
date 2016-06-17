@@ -26,4 +26,11 @@ pair<int, MessageType> getHeader(int socket) {
     return ret;
 }
 
+int getMessage(int socket, MessageInfo& info) {
+    // TODO: Get message body and place into info
+    // Info uses smart pointers so we don't have to
+    // worry about freeing memory
+    return 0;    
+}
+
 }
