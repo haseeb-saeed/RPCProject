@@ -1,6 +1,10 @@
 #ifndef __REQUEST_H__
 #define __REQUEST_H__
 
+#include <utility>
+
+namespace request {
+
 // Request types
 enum Request {
     REGISTER,
@@ -19,8 +23,12 @@ enum Response {
     EXECUTE_FAILURE
 };
 
+// Returns a tuple of the <length, request type>
+// A pair with length <= 0 indicates error/connection closed
+std::pair<int, Request> getHeader(int socket);
+
 // TODO:
-// Add functions to get length and type of response message
 // Add functions to parse each type of response message
+}
 
 #endif // __REQUEST_H__
