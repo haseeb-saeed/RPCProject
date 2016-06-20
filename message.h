@@ -28,8 +28,8 @@ struct MessageInfo {
     std::string name;       // The name of the machine/function
     int code;               // The port or error code
     int num_args;           // The number of args
-    std::unique_ptr<int[]> arg_types;         // The types of args
-    std::unique_ptr<int[]> args;              // The function arguments
+    std::unique_ptr<int[]> arg_types;       // The types of args
+    std::unique_ptr<void*[]> args;          // The function arguments
 };
 
 // Returns a tuple of the <length, request type>
