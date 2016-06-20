@@ -143,7 +143,3 @@ int rpcExecute() {
     
     return 0;
 }
-
-int rpcTerminate() {
-    return 0;
-}

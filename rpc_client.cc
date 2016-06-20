@@ -27,3 +27,7 @@ int rpcCall(char* name, int* argTypes, void** args) {
     // Copy reply arguments to args
     return 0;
 }
+
+int rpcTerminate() {
+        return 0;
+}
