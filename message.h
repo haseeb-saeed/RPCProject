@@ -36,7 +36,7 @@ struct MessageInfo {
 
 // Returns a tuple of the <length, request type>
 // A pair with length <= 0 indicates error/connection closed
-// std::pair<int, MessageType> getHeader(int socket);
+int getHeader(int socket, MessageInfo& info);
 
 // Places the message body into the struct
 // Returns < 0 for errors

@@ -14,7 +14,7 @@ int getServerIdentifier(int socket, MessageInfo& info) {
         info.length = status;
         cerr << "recv server identifier error" << endl;
     }
-    return 0;
+    return status;
 }
 
 int getPort(int socket, MessageInfo& info) {
@@ -23,7 +23,7 @@ int getPort(int socket, MessageInfo& info) {
         info.length = status;
         cerr << "recv port error" << endl;
     }
-    return 0;
+    return status;
 }
 
 int getName(int socket, MessageInfo& info) {
@@ -32,7 +32,7 @@ int getName(int socket, MessageInfo& info) {
         info.length = status;
         cerr << "recv name error" << endl;
     }
-    return 0;
+    return status;
 }
 
 int getArgs(int socket, MessageInfo& info) {
@@ -41,7 +41,7 @@ int getArgs(int socket, MessageInfo& info) {
         info.length = status;
         cerr << "recv args error" << endl;
     }
-    return 0;
+    return status;
 }
 
 int getArgTypes(int socket, MessageInfo& info) {
@@ -50,7 +50,7 @@ int getArgTypes(int socket, MessageInfo& info) {
         info.length = status;
         cerr << "recv arg types error" << endl;
     }
-    return 0;
+    return status;
 }
 
 int getReasonCode(int socket, MessageInfo& info) {
@@ -59,14 +59,10 @@ int getReasonCode(int socket, MessageInfo& info) {
         info.length = status;
         cerr << "recv code error" << endl;
     }
-    return 0;
+    return status;
 }
 
-int getMessage(int socket, MessageInfo& info) {
-    // TODO: Get message body and place into info
-    // Info uses smart pointers so we don't have to
-    // worry about freeing memory
-
+int getHeader(int socket, MessageInfo& info) {
     // Get the length of the message
     int status = recv(socket, &info.length, sizeof(info.length), MSG_WAITALL);
     if (status <= 0) {
@@ -80,6 +76,13 @@ int getMessage(int socket, MessageInfo& info) {
         info.length = status;
         cerr << "recv message type error" << endl;
     }
+    return status;
+}
+
+int getMessage(int socket, MessageInfo& info) {
+    // TODO: Get message body and place into info
+    // Info uses smart pointers so we don't have to
+    // worry about freeing memory
 
     switch (info.type) {
         case REGISTER:
@@ -122,7 +125,7 @@ int getMessage(int socket, MessageInfo& info) {
             break;
     }
 
-    return status;    
+    return 0;
 }
 
 }
