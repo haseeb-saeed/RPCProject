@@ -15,9 +15,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "args.h"
 #include "rpc.h"
 
 #define SOCK_INVALID -1
+using namespace args;
 using namespace std;
 
 static int binder_socket = SOCK_INVALID;
@@ -93,6 +95,12 @@ int rpcInit() {
 }
 
 int rpcRegister(char* name, int* argTypes, skeleton f) {
+
+    // TODO: Send REGISTER request to binder and return any errors
+    // Add function to local datatabse
+    string key = getSignature(name, argTypes); 
+    functions[key] = f;
+
     return 0;
 }
 
