@@ -4,20 +4,91 @@
  * This implements the server-side RPC library.
  */
 
+#include <cstring>
+#include <string>
+#include <unordered_map>
+
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "rpc.h"
+
+#define SOCK_INVALID -1
 using namespace std;
+
+static int binder_socket = SOCK_INVALID;
+static int client_socket = SOCK_INVALID;
+static unordered_map<string, skeleton> functions;
 
 int rpcInit() {
 
-    // TODO:
-    // Create and bind a socket for client requests
-    // Return error if socket creation or binding fails
-    // Create another socket for connecting to the binder
-    // Return error if socket creation fails
-    // Fetch the binder's address/port from environment variables
-    // Return error if environment variables don't exist
-    // Connect to the binder
-    // Return error if connection fails
+    // Get environment variables
+    const char* binder_addr = getenv("BINDER_ADDRESS");
+    const char* binder_port = getenv("BINDER_PORT");
+    if (binder_addr == nullptr || binder_port == nullptr) {
+        // TODO: Error code
+        return -1;    
+    }
+
+    // Get information for the server address
+    addrinfo hints, *addr;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if (getaddrinfo(binder_addr, binder_port, &hints, &addr) != 0) {
+        // TODO: Error code
+        return -1;    
+    }
+
+    // Connect to binder
+    binder_socket = socket(PF_INET, SOCK_STREAM, 0);
+    if (binder_socket == SOCK_INVALID) {
+        // TODO: Error code
+        return -1;    
+    }
+
+    int status = connect(binder_socket, addr->ai_addr, addr->ai_addrlen);
+    freeaddrinfo(addr);
+    if (status < 0) {
+        // TODO: Error code
+        close(binder_socket);
+        return -1;
+    }
+
+    // Open socket for clients to connect to
+    client_socket = socket(PF_INET, SOCK_STREAM, 0);
+    if (client_socket == SOCK_INVALID) {
+        // TODO: Error code
+        close(binder_socket);
+        return -1;    
+    }
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    if (getaddrinfo(nullptr, "0", &hints, &addr) != 0) {
+        // TODO: Error code
+        close(binder_socket);
+        close(client_socket);
+        return -1; 
+    }
+
+    status = bind(client_socket, addr->ai_addr, addr->ai_addrlen);
+    freeaddrinfo(addr);
+    if (status < 0) {
+        // TODO: Error code
+        close(binder_socket);
+        close(client_socket);
+        return -1;    
+    }
+    
     return 0;
 }
 
