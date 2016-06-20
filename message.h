@@ -24,15 +24,15 @@ enum MessageType {
 
 // Message info
 struct MessageInfo {
-    int length;             // The length of the message
-    MessageType type;       // The type of message
-    std::string name;       // The name of the machine/function
-    std::string server_identifier;          // IP address or hostname
-    int port;               // The port number
-    int reason_code;        // The error code
-    int num_args;           // The number of args
-    int* arg_types;         // The types of args
-    void** args;            // The function arguments
+    int length;                 // The length of the message
+    MessageType type;           // The type of message
+    char name[64];              // The name of the machine/function
+    char server_identifier[64]; // IP address or hostname
+    int port;                   // The port number
+    int reason_code;            // The error code
+    int num_args;               // The number of args
+    int* arg_types;             // The types of args
+    void** args;                // The function arguments
 };
 
 // Returns a tuple of the <length, request type>

@@ -113,7 +113,7 @@ int rpcRegister(char* name, int* argTypes, skeleton f) {
 static void executeAsync(int client) {
 
     auto& info = client_info[client];
-    string key = getSignature(info.name.c_str(), info.arg_types);
+    string key = getSignature(info.name, info.arg_types);
     if (functions[key] == nullptr) {
         // TODO: Send back EXECUTE_FAILED with function not found    
     }

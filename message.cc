@@ -35,22 +35,28 @@ int getName(int socket, MessageInfo& info) {
     return status;
 }
 
+// TODO: This needs to be rewritten so that it correctly allocates memory
 int getArgs(int socket, MessageInfo& info) {
-    int status = recv(socket, &info.args, sizeof(info.args), MSG_WAITALL);
+    /*int status = recv(socket, &info.args, sizeof(info.args), MSG_WAITALL);
     if (status <= 0) {
         info.length = status;
         cerr << "recv args error" << endl;
     }
     return status;
+    */
+    return 0;
 }
 
+// TODO: This needs to be rewritten so that it correctly allocates memory
 int getArgTypes(int socket, MessageInfo& info) {
+    /*
     int status = recv(socket, &info.arg_types, sizeof(info.arg_types), MSG_WAITALL);
     if (status <= 0) {
         info.length = status;
         cerr << "recv arg types error" << endl;
     }
-    return status;
+    */
+    return 0;
 }
 
 int getReasonCode(int socket, MessageInfo& info) {
