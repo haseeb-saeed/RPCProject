@@ -26,7 +26,9 @@ struct MessageInfo {
     int length;             // The length of the message
     MessageType type;       // The type of message
     std::string name;       // The name of the machine/function
-    int code;               // The port or error code
+    std::string server_identifier;          // IP address or hostname
+    int port;               // The port number
+    int reason_code;        // The error code
     int num_args;           // The number of args
     std::unique_ptr<int[]> arg_types;       // The types of args
     std::unique_ptr<void*[]> args;          // The function arguments
@@ -34,7 +36,7 @@ struct MessageInfo {
 
 // Returns a tuple of the <length, request type>
 // A pair with length <= 0 indicates error/connection closed
-std::pair<int, MessageType> getHeader(int socket);
+// std::pair<int, MessageType> getHeader(int socket);
 
 // Places the message body into the struct
 // Returns < 0 for errors
