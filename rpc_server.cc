@@ -158,6 +158,7 @@ int rpcExecute() {
                     // TODO: Read the message header
                     // Peek at the header and continue
                     // if we don't have all 8 bytes
+                    getHeader(i, info);
 
                     if (info.type == MessageType::TERMINATE) {
                         // Wait for all threads to be done
@@ -170,6 +171,8 @@ int rpcExecute() {
                     // TODO: Read the message body
                     // Peek at the body and continue if
                     // we don't have the full length
+                    getMessage(i, info);
+
                     FD_CLR(i, &master_set);
                     thread th(executeAsync, i);
                     calls.push_back(move(th));
