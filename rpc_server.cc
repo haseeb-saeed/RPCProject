@@ -29,6 +29,7 @@ using namespace std;
 static int binder_socket = SOCK_INVALID;
 static int client_socket = SOCK_INVALID;
 static unordered_map<string, skeleton> functions;
+static unordered_map<int, MessageInfo> client_info;
 static vector<thread> calls;
 
 int rpcInit() {
@@ -109,37 +110,76 @@ int rpcRegister(char* name, int* argTypes, skeleton f) {
     return 0;
 }
 
+static void executeAsync(int client) {
+
+    auto& info = client_info[client];
+    string key = getSignature(info.name.c_str(), info.arg_types);
+    if (functions[key] == nullptr) {
+        // TODO: Send back EXECUTE_FAILED with function not found    
+    }
+
+    int status = (functions[key])(info.arg_types, info.args);
+    if (status < 0) {
+        // TODO: Send back EXECUTE_FAILED with function error    
+    }
+
+    // TODO: Since we're most likely done with info here, clean up
+    // the allocated memory
+    client_info.erase(client);
+    close(client);
+}
+
 int rpcExecute() {
 
-    // TODO: Handle all kinds of messages
+    fd_set master_set, read_set;
+    FD_ZERO(&master_set);
+    FD_SET(client_socket, &master_set);
+    int max_socket = client_socket;
+
     for (;;) {
+        read_set = master_set;
+        select(max_socket + 1, &read_set, nullptr, nullptr, nullptr);    
         
-        MessageInfo info;
-        if (getMessage(client_socket, info) < 0) {
-            // TODO: Well this is awkward...
-            return -1;
-        }
-     
-        switch (info.type) {
-            case MessageType::EXECUTE:
-                // TODO: Stuff
-                break;
-
-            case MessageType::TERMINATE:
-                // Wait for all threads to be done
-                for (auto& th : calls) {
-                    th.join();    
+        for (int i = 0; i <= max_socket; ++i) {
+            if (!FD_ISSET(i, &read_set)) {
+                continue;
+            }    
+            
+            if (i == client_socket) {
+                // Accept the incoming connection
+                int client = accept(client_socket, nullptr, nullptr);
+                if (client != SOCK_INVALID) {
+                    FD_SET(i, &master_set);
+                    max_socket = max(max_socket, client); 
                 }
+            } else {                
+                auto& info = client_info[i];
+                if (info.type == MessageType::NONE) {
+                    // TODO: Read the message header
+                    // Peek at the header and continue
+                    // if we don't have all 8 bytes
 
-                close(binder_socket);
-                close(client_socket);
-                break;;
-
-            default:
-                // Shit, we shouldn't be here
-                return -1;
-        }
+                    if (info.type == MessageType::TERMINATE) {
+                        // Wait for all threads to be done
+                        for (auto& th : calls) {
+                            th.join();    
+                        }
+                        break;
+                    } 
+                } else {
+                    // TODO: Read the message body
+                    // Peek at the body and continue if
+                    // we don't have the full length
+                    FD_CLR(i, &master_set);
+                    thread th(executeAsync, i);
+                    calls.push_back(move(th));
+                }
+            }
+        } 
     }
-    
+   
+    close(binder_socket);
+    close(client_socket);
+ 
     return 0;
 }

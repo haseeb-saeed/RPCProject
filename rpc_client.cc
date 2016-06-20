@@ -3,6 +3,7 @@
  *
  * This implements the client-side RPC library.
  */
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <sys/socket.h>

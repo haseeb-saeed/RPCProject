@@ -9,6 +9,7 @@ namespace message {
 
 // Message types
 enum MessageType {
+    NONE,
     REGISTER,
     REGISTER_SUCCESS,
     REGISTER_FAILURE,
@@ -30,8 +31,8 @@ struct MessageInfo {
     int port;               // The port number
     int reason_code;        // The error code
     int num_args;           // The number of args
-    std::unique_ptr<int[]> arg_types;       // The types of args
-    std::unique_ptr<void*[]> args;          // The function arguments
+    int* arg_types;         // The types of args
+    void** args;            // The function arguments
 };
 
 // Returns a tuple of the <length, request type>
