@@ -6,7 +6,9 @@
 
 #include <cstring>
 #include <string>
+#include <thread>
 #include <unordered_map>
+#include <vector>
 
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -16,15 +18,18 @@
 #include <unistd.h>
 
 #include "args.h"
+#include "message.h"
 #include "rpc.h"
 
 #define SOCK_INVALID -1
 using namespace args;
+using namespace message;
 using namespace std;
 
 static int binder_socket = SOCK_INVALID;
 static int client_socket = SOCK_INVALID;
 static unordered_map<string, skeleton> functions;
+static vector<thread> calls;
 
 int rpcInit() {
 
@@ -105,6 +110,37 @@ int rpcRegister(char* name, int* argTypes, skeleton f) {
 }
 
 int rpcExecute() {
+
+    // TODO: Handle all kinds of messages
+    for (;;) {
+        
+        MessageInfo info;
+        if (getMessage(client_socket, info) < 0) {
+            // TODO: Well this is awkward...
+            return -1;
+        }
+     
+        switch (info.type) {
+            case MessageType::EXECUTE:
+                // TODO: Stuff
+                break;
+
+            case MessageType::TERMINATE:
+                // Wait for all threads to be done
+                for (auto& th : calls) {
+                    th.join();    
+                }
+
+                close(binder_socket);
+                close(client_socket);
+                break;;
+
+            default:
+                // Shit, we shouldn't be here
+                return -1;
+        }
+    }
+    
     return 0;
 }
 
