@@ -1,7 +1,7 @@
 CC=g++
 CFLAGS=-c -Wall -std=c++11
 LDFLAGS=-lpthread
-SOURCES=args.cc message.cc rpc_client.cc rpc_server.cc
+SOURCES=$(wildcard *.cc)
 OBJECTS=$(SOURCES:.cc=.o)
 LIBRARY=librpc.a
 LC=ar rcs
