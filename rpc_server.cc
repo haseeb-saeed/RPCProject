@@ -136,6 +136,11 @@ int rpcExecute() {
     FD_SET(client_socket, &master_set);
     int max_socket = client_socket;
 
+    if (listen(client_socket, 5) < 0) {
+        // TODO: Error code
+        return -1;
+    }
+
     for (;;) {
         read_set = master_set;
         select(max_socket + 1, &read_set, nullptr, nullptr, nullptr);    
