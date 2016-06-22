@@ -230,6 +230,41 @@ static int sendArgTypes(int socket, const MessageInfo& info) {
 }
 
 static int sendArgs(int socket, const MessageInfo& info) {
+
+    for (int i = 0; i < info.num_args; ++i) {
+        int num = arrayLen(info.arg_types[i]);
+        if (num == 0) {
+            num += 1;   // For a non-array, we only want space for one arg
+        }        
+        
+        int buffer_size;
+        if (isChar(info.arg_types[i])) {
+            buffer_size = num * sizeof(char);
+        } 
+        else if (isShort(info.arg_types[i])) {
+            buffer_size = num * sizeof(short);
+        } 
+        else if (isInt(info.arg_types[i])) {
+            buffer_size = num * sizeof(int);
+        } 
+        else if (isLong(info.arg_types[i])) {
+            buffer_size = num * sizeof(long);
+        } 
+        else if (isFloat(info.arg_types[i])) {
+            buffer_size = num * sizeof(float);
+        } 
+        else if (isDouble(info.arg_types[i])) {
+            buffer_size = num * sizeof(double);
+        } else {
+            // We should never hit this    
+        }
+
+        int status = sendBytes(socket, info.args[i], buffer_size);
+        if (status < 0) {
+            return status;
+        }
+    }
+
     return 0;
 }
 
@@ -238,7 +273,11 @@ static int sendReasonCode(int socket, const MessageInfo& info) {
 }
 
 static int sendHeader(int socket, const MessageInfo& info) {
-    return 0;
+    int status = sendBytes(socket, &info.length, sizeof(info.length));
+    if (status < 0) {
+        return status;
+    }
+    return sendBytes(socket, &info.type, sizeof(info.type));
 }
 
 int sendMessage(int socket, const MessageInfo& info) {
