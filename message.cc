@@ -10,7 +10,7 @@ using namespace std;
 
 namespace message {
 
-int getServerIdentifier(int socket, MessageInfo& info) {
+static int getServerIdentifier(int socket, MessageInfo& info) {
     int status = recv(socket, &info.server_identifier, sizeof(info.server_identifier), MSG_WAITALL);
     if (status <= 0) {
         info.length = status;
@@ -19,7 +19,7 @@ int getServerIdentifier(int socket, MessageInfo& info) {
     return status;
 }
 
-int getPort(int socket, MessageInfo& info) {
+static int getPort(int socket, MessageInfo& info) {
     int status = recv(socket, &info.port, sizeof(info.port), MSG_WAITALL);
     if (status <= 0) {
         info.length = status;
@@ -28,7 +28,7 @@ int getPort(int socket, MessageInfo& info) {
     return status;
 }
 
-int getName(int socket, MessageInfo& info) {
+static int getName(int socket, MessageInfo& info) {
     int status = recv(socket, &info.name, sizeof(info.name), MSG_WAITALL);
     if (status <= 0) {
         info.length = status;
@@ -37,7 +37,7 @@ int getName(int socket, MessageInfo& info) {
     return status;
 }
 
-int getArgTypes(int socket, MessageInfo& info) {
+static int getArgTypes(int socket, MessageInfo& info) {
     int status = recv(socket, &info.num_args, sizeof(info.num_args), MSG_WAITALL);
     if (status <= 0) {
         info.length = status;
@@ -62,7 +62,7 @@ int getArgTypes(int socket, MessageInfo& info) {
     return status;
 }
 
-int getArgs(int socket, MessageInfo& info) {
+static int getArgs(int socket, MessageInfo& info) {
 
     for (int i = 0; i < info.num_args; ++i) {
         int num = arrayLen(info.arg_types[i]);
@@ -123,7 +123,7 @@ int getArgs(int socket, MessageInfo& info) {
     return 0;
 }
 
-int getReasonCode(int socket, MessageInfo& info) {
+static int getReasonCode(int socket, MessageInfo& info) {
     int status = recv(socket, &info.reason_code, sizeof(info.reason_code), MSG_WAITALL);
     if (status <= 0) {
         info.length = status;
@@ -191,6 +191,57 @@ int getMessage(int socket, MessageInfo& info) {
             break;
     }
 
+    return 0;
+}
+
+static int sendBytes(int socket, const void* buffer, int buffer_size) {
+    int sent = 0;
+    do {
+        int bytes = send(socket, (char*)buffer + sent, buffer_size - sent, 0);
+        if (bytes < 0) {
+            return bytes;
+        }
+        sent += bytes;
+    }
+    while (sent != buffer_size);
+    
+    return 0;
+}
+
+static int sendServerIdentifier(int socket, const MessageInfo& info) {
+    return sendBytes(socket, info.server_identifier, sizeof(info.server_identifier));
+}
+
+static int sendPort(int socket, const MessageInfo& info) {
+    return sendBytes(socket, &info.port, sizeof(info.port));
+}
+
+static int sendName(int socket, const MessageInfo& info) {
+    return sendBytes(socket, info.name, sizeof(info.name));
+}
+
+static int sendArgTypes(int socket, const MessageInfo& info) {
+    // Send # of arguments and then send arg types without the null
+    int status = sendBytes(socket, &info.num_args, sizeof(info.num_args));
+    if (status < 0) {
+        return status;
+    }
+    return sendBytes(socket, info.arg_types, info.num_args * sizeof(int));
+}
+
+static int sendArgs(int socket, const MessageInfo& info) {
+    return 0;
+}
+
+static int sendReasonCode(int socket, const MessageInfo& info) {
+    return sendBytes(socket, &info.reason_code, sizeof(info.reason_code));
+}
+
+static int sendHeader(int socket, const MessageInfo& info) {
+    return 0;
+}
+
+int sendMessage(int socket, const MessageInfo& info) {
     return 0;
 }
 

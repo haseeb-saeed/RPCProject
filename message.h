@@ -43,6 +43,10 @@ int getHeader(int socket, MessageInfo& info);
 // Returns < 0 for errors
 int getMessage(int socket, MessageInfo& info);
 
+// Sends the message constructed from info
+// Returns < 0 for errors
+int sendMessage(int socket, const MessageInfo& info);
+
 }
 
 #endif // __MESSAGE_H__
