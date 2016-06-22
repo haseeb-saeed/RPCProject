@@ -10,6 +10,10 @@ using namespace std;
 
 namespace message {
 
+MessageInfo::MessageInfo(): length(0), type(MessageType::NONE), port(0),
+    reason_code(0), num_args(0), arg_types(nullptr), args(nullptr) {
+}
+
 static int getServerIdentifier(int socket, MessageInfo& info) {
     int status = recv(socket, &info.server_identifier, sizeof(info.server_identifier), MSG_WAITALL);
     if (status <= 0) {

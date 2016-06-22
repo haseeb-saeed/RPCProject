@@ -33,6 +33,8 @@ struct MessageInfo {
     int num_args;               // The number of args
     int* arg_types;             // The types of args
     void** args;                // The function arguments
+
+    MessageInfo();              // Default constructor
 };
 
 // Returns a tuple of the <length, request type>
