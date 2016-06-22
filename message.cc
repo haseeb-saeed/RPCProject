@@ -3,7 +3,9 @@
 
 #include <sys/socket.h>
 
+#include "args.h"
 #include "message.h"
+using namespace args;
 using namespace std;
 
 namespace message {
@@ -48,6 +50,9 @@ int getArgTypes(int socket, MessageInfo& info) {
             info.length = status;
             delete [] info.arg_types;
             delete [] info.args;
+            
+            info.arg_types = nullptr;
+            info.args = nullptr;
             cerr << "recv arg types error" << endl;        
         } else {
             info.arg_types[info.num_args] = 0;    
@@ -57,13 +62,64 @@ int getArgTypes(int socket, MessageInfo& info) {
     return status;
 }
 
-// TODO: This needs to be rewritten so that it correctly allocates memory
 int getArgs(int socket, MessageInfo& info) {
 
-    // Okay, here's the deal. I need to iterate through each argtype
-    // and get the type and the number of args to read.
-    // then I need to allocate memory for each arg and store the pointer
-    // FUCK THIS IS GROSS
+    for (int i = 0; i < info.num_args; ++i) {
+        int num = arrayLen(info.arg_types[i]);
+        if (num == 0) {
+            num += 1;   // For a non-array, we only want space for one arg
+        }        
+        
+        void* buffer;
+        int buffer_size;
+        
+        if (isChar(info.arg_types[i])) {
+            buffer = (void*) new char[num];
+            buffer_size = num * sizeof(char);
+        } 
+        else if (isShort(info.arg_types[i])) {
+            buffer = (void*) new short[num];
+            buffer_size = num * sizeof(short);
+        } 
+        else if (isInt(info.arg_types[i])) {
+            buffer = (void*) new int[num];
+            buffer_size = num * sizeof(long);
+        } 
+        else if (isLong(info.arg_types[i])) {
+            buffer = (void*) new long[num];
+            buffer_size = num * sizeof(long);
+        } 
+        else if (isFloat(info.arg_types[i])) {
+            buffer = (void*) new float[num];
+            buffer_size = num * sizeof(float);
+        } 
+        else if (isDouble(info.arg_types[i])) {
+            buffer = (void*) new double[num];
+            buffer_size = num * sizeof(double);
+        } else {
+            // We should never hit this    
+        }
+
+        int status = recv(socket, buffer, buffer_size, MSG_WAITALL);
+        if (status <= 0) {
+            info.length = status;
+            for (int j = 0; j <= i; ++j) {
+                delete [] info.args[j];
+            }
+
+            delete [] info.arg_types;
+            delete [] info.args;
+
+            info.arg_types = nullptr;
+            info.args = nullptr;
+            cerr << "recv arg error" << endl;  
+            
+            return status;
+        }
+
+        info.args[i] = buffer;
+    }
+
     return 0;
 }
 
