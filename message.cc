@@ -281,6 +281,49 @@ static int sendHeader(int socket, const MessageInfo& info) {
 }
 
 int sendMessage(int socket, const MessageInfo& info) {
+
+    sendHeader(socket, info);
+    switch (info.type) {
+        case REGISTER:
+            sendServerIdentifier(socket, info);
+            sendPort(socket, info);
+            sendName(socket, info);
+            sendArgTypes(socket, info);
+            break;
+        case REGISTER_SUCCESS:
+            sendReasonCode(socket, info);
+            break;
+        case REGISTER_FAILURE:
+            sendReasonCode(socket, info);
+            break;
+        case LOC_REQUEST:
+            sendName(socket, info);
+            sendArgTypes(socket, info);
+            break;
+        case LOC_SUCCESS:
+            sendServerIdentifier(socket, info);
+            sendPort(socket, info);
+            break;
+        case LOC_FAILURE:
+            sendReasonCode(socket, info);
+            break;
+        case EXECUTE:
+            sendName(socket, info);
+            sendArgTypes(socket, info);
+            sendArgs(socket, info);
+            break;
+        case EXECUTE_SUCCESS:
+            sendName(socket, info);
+            sendArgTypes(socket, info);
+            sendArgs(socket, info);
+            break;
+        case EXECUTE_FAILURE:
+            sendReasonCode(socket, info);
+            break;
+        case TERMINATE:
+            break;
+    }
+
     return 0;
 }
 
