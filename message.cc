@@ -35,27 +35,35 @@ int getName(int socket, MessageInfo& info) {
     return status;
 }
 
-// TODO: This needs to be rewritten so that it correctly allocates memory
-int getArgs(int socket, MessageInfo& info) {
-    /*int status = recv(socket, &info.args, sizeof(info.args), MSG_WAITALL);
+int getArgTypes(int socket, MessageInfo& info) {
+    int status = recv(socket, &info.num_args, sizeof(info.num_args), MSG_WAITALL);
     if (status <= 0) {
         info.length = status;
-        cerr << "recv args error" << endl;
+        cerr << "recv num args error" << endl;    
+    } else {
+        info.arg_types = new int[info.num_args + 1];    // +1 for null terminator
+        info.args = new void*[info.num_args];
+        status = recv(socket, info.arg_types, info.num_args * sizeof(int), MSG_WAITALL);
+        if (status <= 0) {
+            info.length = status;
+            delete [] info.arg_types;
+            delete [] info.args;
+            cerr << "recv arg types error" << endl;        
+        } else {
+            info.arg_types[info.num_args] = 0;    
+        }
     }
+
     return status;
-    */
-    return 0;
 }
 
 // TODO: This needs to be rewritten so that it correctly allocates memory
-int getArgTypes(int socket, MessageInfo& info) {
-    /*
-    int status = recv(socket, &info.arg_types, sizeof(info.arg_types), MSG_WAITALL);
-    if (status <= 0) {
-        info.length = status;
-        cerr << "recv arg types error" << endl;
-    }
-    */
+int getArgs(int socket, MessageInfo& info) {
+
+    // Okay, here's the deal. I need to iterate through each argtype
+    // and get the type and the number of args to read.
+    // then I need to allocate memory for each arg and store the pointer
+    // FUCK THIS IS GROSS
     return 0;
 }
 
@@ -86,8 +94,6 @@ int getHeader(int socket, MessageInfo& info) {
 }
 
 int getMessage(int socket, MessageInfo& info) {
-    // TODO: Get message body and place into info
-
     switch (info.type) {
         case REGISTER:
             getServerIdentifier(socket, info);
