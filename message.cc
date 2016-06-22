@@ -83,7 +83,7 @@ int getArgs(int socket, MessageInfo& info) {
         } 
         else if (isInt(info.arg_types[i])) {
             buffer = (void*) new int[num];
-            buffer_size = num * sizeof(long);
+            buffer_size = num * sizeof(int);
         } 
         else if (isLong(info.arg_types[i])) {
             buffer = (void*) new long[num];
