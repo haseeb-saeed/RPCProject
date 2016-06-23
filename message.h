@@ -36,7 +36,8 @@ class Message {
 
 public:
     Message();                          // Default constructor
-    int recvMessage(const int& socket); // Gets a message from the given socket
+    int recvHeader(const int& socket);  // Gets a message header from the given socket
+    int recvMessage(const int& socket); // Gets a message body from the given socket
     int sendMessage(const int& socket); // Sends a message to the given socket
 
     void setType(const MessageType& type);
@@ -59,7 +60,6 @@ public:
     int numArgs() const;
 
 private:
-    int recvHeader(const int& socket);
     int recvName(const int& socket);
     int recvServerIdentifier(const int& socket);
     int recvPort(const int& socket);
