@@ -48,6 +48,12 @@ unsigned arrayLen(int arg_type) {
     return arg_type & 0xFFFF;    
 }
 
+int numArgs(int* arg_types) {
+    int count = 0;
+    for (; arg_types[count] != 0; ++count);
+    return count;
+}
+
 bool isEnd(int arg_type) {
     return arg_type == 0;    
 }

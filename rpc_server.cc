@@ -31,6 +31,8 @@ static int client_socket = SOCK_INVALID;
 static unordered_map<string, skeleton> functions;
 static unordered_map<int, MessageInfo> client_info;
 static vector<thread> calls;
+static int host_port = 0;
+static char host_name[64];
 
 int rpcInit() {
 
@@ -97,17 +99,74 @@ int rpcInit() {
         return -1;    
     }
     
+    // Get the server name and port
+    sockaddr_in server_addr;
+    socklen_t len = sizeof(server_addr);
+    if (getsockname(client_socket, (sockaddr*)&server_addr, &len) < 0) {
+        // TODO: Error code
+        close(binder_socket);
+        close(client_socket);
+        return -1;
+    }
+
+    if (gethostname(host_name, sizeof(host_name)) < 0) {
+        // TODO: Error code
+        close(binder_socket);
+        close(client_socket);
+        return -1;
+    }
+
+    auto host = gethostbyname(host_name);
+    if (host == nullptr) {
+        // TODO: Error code
+        close(binder_socket);
+        close(client_socket);
+        return -1;
+    }
+
+    host_port = ntohs(server_addr.sin_port);
+    memcpy(host_name, host->h_name, strlen(host->h_name) + 1);
+
     return 0;
 }
 
 int rpcRegister(char* name, int* argTypes, skeleton f) {
 
-    // TODO: Send REGISTER request to binder and return any errors
+    // Create message info
+    MessageInfo info;
+    info.type = MessageType::REGISTER;
+    info.port = host_port;
+    info.num_args = numArgs(argTypes);
+    info.arg_types = argTypes;
+
+    memcpy(info.name, name, sizeof(info.name));
+    memcpy(info.server_identifier, host_name, sizeof(info.server_identifier));
+
+    info.length = sizeof(info.port) + sizeof(info.name) +
+        sizeof(info.server_identifier) + sizeof(*info.arg_types) * info.num_args;
+
+    // Send message to binder
+    if (sendMessage(binder_socket, info) < 0) {
+        // TODO: Error code
+        return -1;
+    }
+
+    // Get binder's response
+    if (getHeader(binder_socket, info) < 0) {
+        // TODO: Error code
+        return -1;
+    }
+
+    if (getMessage(binder_socket, info) < 0) {
+        // TODO: Error code
+        return -1;
+    }
+
     // Add function to local datatabse
     string key = getSignature(name, argTypes); 
     functions[key] = f;
 
-    return 0;
+    return info.reason_code;
 }
 
 static void executeAsync(int client) {
