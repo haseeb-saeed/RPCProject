@@ -175,12 +175,28 @@ static void executeAsync(int client) {
     auto& info = client_info[client];
     string key = getSignature(info.name, info.arg_types);
     if (functions[key] == nullptr) {
-        // TODO: Send back EXECUTE_FAILED with function not found    
+        // TODO: Error code
+        info.type = MessageType::EXECUTE_FAILED;
+        info.length = sizeof(info.reason_code);
+        if (sendMessage(client, info) < 0) {
+            return;
+        }
     }
 
     int status = (functions[key])(info.arg_types, info.args);
     if (status < 0) {
         // TODO: Send back EXECUTE_FAILED with function error    
+        info.type = MessageType::EXECUTE_FAILURE;
+        info.length = sizeof(info.reason_code);
+        if (sendMessage(client, info) < 0) {
+            return;
+        }
+    }
+
+    // TODO: Length
+    info.type = MessageType::EXECUTE_SUCCESS;
+    if (sendMessage(client, info) < 0) {
+        return;
     }
 
     // TODO: Since we're most likely done with info here, clean up
