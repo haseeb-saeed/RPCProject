@@ -48,8 +48,5 @@ int main() {
     new_sd = accept(socketfd, (struct sockaddr *)&client_addr, &addr_size);
     if (new_sd == -1) cerr << "listen error" << endl;
 
-    MessageInfo msgInfo;
-    int msg = getMessage(new_sd, msgInfo);
-
     return 0;
 }

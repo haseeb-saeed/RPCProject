@@ -1,4 +1,4 @@
-#include <utility>
+#include <cstring>
 #include <iostream>
 
 #include <sys/socket.h>
@@ -10,195 +10,222 @@ using namespace std;
 
 namespace message {
 
-MessageInfo::MessageInfo(): length(0), type(MessageType::NONE), port(0),
+Message::Message(): length(0), type(MessageType::NONE), port(0),
     reason_code(0), num_args(0), arg_types(nullptr), args(nullptr) {
 }
 
-static int getServerIdentifier(int socket, MessageInfo& info) {
-    int status = recv(socket, &info.server_identifier, sizeof(info.server_identifier), MSG_WAITALL);
+void Message::setType(const MessageType& type) {
+    this->type = type;
+    recalculateLength();
+}
+
+void Message::setName(const char* name) {
+    memcpy(this->name, name, sizeof(this->name));
+}
+
+void Message::setServerIdentifier(const char* identifier) {
+    memcpy(this->server_identifier, identifier, sizeof(this->server_identifier));
+}
+
+void Message::setPort(const int& port) {
+    this->port = port;    
+}
+
+void Message::setReasonCode(const int& reason_code) {
+    this->reason_code = reason_code;    
+}
+
+void Message::setArgTypes(int* arg_types) {
+    this->num_args = args::numArgs(arg_types);
+    this->arg_types = arg_types;    
+    recalculateLength();
+}
+
+void Message::setArgs(void** args) {
+    this->args = args;
+}
+
+MessageType Message::getType() const {
+    return type;    
+}
+
+const char* Message::getName() const {
+    return name;
+}
+
+const char* Message::getServerIndentifier() const {
+    return server_identifier;
+}
+                                            
+int Message::getPort() const {
+    return port;    
+}
+
+int Message::getReasonCode() const {
+    return reason_code;
+}
+
+int* Message::getArgTypes() const {
+    return arg_types;    
+}
+
+void** Message::getArgs() const {
+    return args;    
+}
+
+int Message::getLength() const {
+    return length;    
+}
+
+int Message::numArgs() const {
+    return num_args;    
+}
+
+int Message::recvServerIdentifier(const int& socket) {
+    int status = recv(socket, server_identifier, sizeof(server_identifier), MSG_WAITALL);
     if (status <= 0) {
-        info.length = status;
         cerr << "recv server identifier error" << endl;
     }
     return status;
 }
 
-static int getPort(int socket, MessageInfo& info) {
-    int status = recv(socket, &info.port, sizeof(info.port), MSG_WAITALL);
+int Message::recvPort(const int& socket) {
+    int status = recv(socket, &port, sizeof(port), MSG_WAITALL);
     if (status <= 0) {
-        info.length = status;
         cerr << "recv port error" << endl;
     }
     return status;
 }
 
-static int getName(int socket, MessageInfo& info) {
-    int status = recv(socket, &info.name, sizeof(info.name), MSG_WAITALL);
+int Message::recvName(const int& socket) {
+    int status = recv(socket, name, sizeof(name), MSG_WAITALL);
     if (status <= 0) {
-        info.length = status;
         cerr << "recv name error" << endl;
     }
     return status;
 }
 
-static int getArgTypes(int socket, MessageInfo& info) {
-    int status = recv(socket, &info.num_args, sizeof(info.num_args), MSG_WAITALL);
+int Message::recvArgTypes(const int& socket) {
+    int status = recv(socket, &num_args, sizeof(num_args), MSG_WAITALL);
     if (status <= 0) {
-        info.length = status;
         cerr << "recv num args error" << endl;    
     } else {
-        info.arg_types = new int[info.num_args + 1];    // +1 for null terminator
-        info.args = new void*[info.num_args];
-        status = recv(socket, info.arg_types, info.num_args * sizeof(int), MSG_WAITALL);
+        arg_types = new int[num_args + 1];    // +1 for null terminator
+        args = new void*[num_args];
+        status = recv(socket, arg_types, num_args * sizeof(*arg_types), MSG_WAITALL);
         if (status <= 0) {
-            info.length = status;
-            delete [] info.arg_types;
-            delete [] info.args;
+            delete [] arg_types;
+            delete [] args;
             
-            info.arg_types = nullptr;
-            info.args = nullptr;
+            arg_types = nullptr;
+            args = nullptr;
             cerr << "recv arg types error" << endl;        
         } else {
-            info.arg_types[info.num_args] = 0;    
+            arg_types[num_args] = 0;    
         }
     }
 
     return status;
 }
 
-static int getArgs(int socket, MessageInfo& info) {
+int Message::recvArgs(const int& socket) {
 
-    for (int i = 0; i < info.num_args; ++i) {
-        int num = arrayLen(info.arg_types[i]);
-        if (num == 0) {
-            num += 1;   // For a non-array, we only want space for one arg
-        }        
-        
-        void* buffer;
-        int buffer_size;
-        
-        if (isChar(info.arg_types[i])) {
-            buffer = (void*) new char[num];
-            buffer_size = num * sizeof(char);
-        } 
-        else if (isShort(info.arg_types[i])) {
-            buffer = (void*) new short[num];
-            buffer_size = num * sizeof(short);
-        } 
-        else if (isInt(info.arg_types[i])) {
-            buffer = (void*) new int[num];
-            buffer_size = num * sizeof(int);
-        } 
-        else if (isLong(info.arg_types[i])) {
-            buffer = (void*) new long[num];
-            buffer_size = num * sizeof(long);
-        } 
-        else if (isFloat(info.arg_types[i])) {
-            buffer = (void*) new float[num];
-            buffer_size = num * sizeof(float);
-        } 
-        else if (isDouble(info.arg_types[i])) {
-            buffer = (void*) new double[num];
-            buffer_size = num * sizeof(double);
-        } else {
-            // We should never hit this    
-        }
-
+    for (int i = 0; i < num_args; ++i) {
+        int buffer_size = argSize(arg_types[i]);
+        void* buffer = (void*) new char[buffer_size];
         int status = recv(socket, buffer, buffer_size, MSG_WAITALL);
         if (status <= 0) {
-            info.length = status;
             for (int j = 0; j <= i; ++j) {
-                delete [] info.args[j];
+                delete [] (char*)args[j];
             }
 
-            delete [] info.arg_types;
-            delete [] info.args;
+            delete [] arg_types;
+            delete [] args;
 
-            info.arg_types = nullptr;
-            info.args = nullptr;
+            arg_types = nullptr;
+            args = nullptr;
             cerr << "recv arg error" << endl;  
             
             return status;
         }
 
-        info.args[i] = buffer;
+        args[i] = buffer;
     }
 
     return 0;
 }
 
-static int getReasonCode(int socket, MessageInfo& info) {
-    int status = recv(socket, &info.reason_code, sizeof(info.reason_code), MSG_WAITALL);
+int Message::recvReasonCode(const int& socket) {
+    int status = recv(socket, &reason_code, sizeof(reason_code), MSG_WAITALL);
     if (status <= 0) {
-        info.length = status;
         cerr << "recv code error" << endl;
     }
     return status;
 }
 
-int getHeader(int socket, MessageInfo& info) {
+int Message::recvHeader(const int& socket) {
     // Get the length of the message
-    int status = recv(socket, &info.length, sizeof(info.length), MSG_WAITALL);
+    int status = recv(socket, &length, sizeof(length), MSG_WAITALL);
     if (status <= 0) {
-        info.length = status;
         cerr << "recv length error" << endl;
     }
     
     // Get the message type
-    status = recv(socket, &info.type, sizeof(info.type), MSG_WAITALL);
+    status = recv(socket, &type, sizeof(type), MSG_WAITALL);
     if (status <= 0) {
-        info.length = status;
         cerr << "recv message type error" << endl;
     }
     return status;
 }
 
-int getMessage(int socket, MessageInfo& info) {
-    switch (info.type) {
+int Message::recvMessage(const int& socket) {
+    switch (type) {
         case REGISTER:
-            getServerIdentifier(socket, info);
-            getPort(socket, info);
-            getName(socket, info);
-            getArgTypes(socket, info);
+            this->recvServerIdentifier(socket);
+            this->recvPort(socket);
+            this->recvName(socket);
+            this->recvArgTypes(socket);
             break;
         case REGISTER_SUCCESS:
-            getReasonCode(socket, info);
+            this->recvReasonCode(socket);
             break;
         case REGISTER_FAILURE:
-            getReasonCode(socket, info);
+            this->recvReasonCode(socket);
             break;
         case LOC_REQUEST:
-            getName(socket, info);
-            getArgTypes(socket, info);
+            this->recvName(socket);
+            this->recvArgTypes(socket);
             break;
         case LOC_SUCCESS:
-            getServerIdentifier(socket, info);
-            getPort(socket, info);
+            this->recvServerIdentifier(socket);
+            this->recvPort(socket);
             break;
         case LOC_FAILURE:
-            getReasonCode(socket, info);
+            this->recvReasonCode(socket);
             break;
         case EXECUTE:
-            getName(socket, info);
-            getArgTypes(socket, info);
-            getArgs(socket, info);
+            this->recvName(socket);
+            this->recvArgTypes(socket);
+            this->recvArgs(socket);
             break;
         case EXECUTE_SUCCESS:
-            getName(socket, info);
-            getArgTypes(socket, info);
-            getArgs(socket, info);
+            this->recvName(socket);
+            this->recvArgTypes(socket);
+            this->recvArgs(socket);
             break;
         case EXECUTE_FAILURE:
-            getReasonCode(socket, info);
+            this->recvReasonCode(socket);
             break;
         case TERMINATE:
+        case NONE:
+        default:
             break;
     }
 
     return 0;
 }
 
-static int sendBytes(int socket, const void* buffer, int buffer_size) {
+int Message::sendBytes(const int& socket, const void* buffer, const int& buffer_size) {
     int sent = 0;
     do {
         int bytes = send(socket, (char*)buffer + sent, buffer_size - sent, 0);
@@ -212,58 +239,32 @@ static int sendBytes(int socket, const void* buffer, int buffer_size) {
     return 0;
 }
 
-static int sendServerIdentifier(int socket, const MessageInfo& info) {
-    return sendBytes(socket, info.server_identifier, sizeof(info.server_identifier));
+int Message::sendServerIdentifier(const int& socket) {
+    return sendBytes(socket, server_identifier, sizeof(server_identifier));
 }
 
-static int sendPort(int socket, const MessageInfo& info) {
-    return sendBytes(socket, &info.port, sizeof(info.port));
+int Message::sendPort(const int& socket) {
+    return sendBytes(socket, &port, sizeof(port));
 }
 
-static int sendName(int socket, const MessageInfo& info) {
-    return sendBytes(socket, info.name, sizeof(info.name));
+int Message::sendName(const int& socket) {
+    return sendBytes(socket, name, sizeof(name));
 }
 
-static int sendArgTypes(int socket, const MessageInfo& info) {
+int Message::sendArgTypes(const int& socket) {
     // Send # of arguments and then send arg types without the null
-    int status = sendBytes(socket, &info.num_args, sizeof(info.num_args));
+    int status = sendBytes(socket, &num_args, sizeof(num_args));
     if (status < 0) {
         return status;
     }
-    return sendBytes(socket, info.arg_types, info.num_args * sizeof(int));
+    return sendBytes(socket, arg_types, num_args * sizeof(int));
 }
 
-static int sendArgs(int socket, const MessageInfo& info) {
+int Message::sendArgs(const int& socket) {
 
-    for (int i = 0; i < info.num_args; ++i) {
-        int num = arrayLen(info.arg_types[i]);
-        if (num == 0) {
-            num += 1;   // For a non-array, we only want space for one arg
-        }        
-        
-        int buffer_size;
-        if (isChar(info.arg_types[i])) {
-            buffer_size = num * sizeof(char);
-        } 
-        else if (isShort(info.arg_types[i])) {
-            buffer_size = num * sizeof(short);
-        } 
-        else if (isInt(info.arg_types[i])) {
-            buffer_size = num * sizeof(int);
-        } 
-        else if (isLong(info.arg_types[i])) {
-            buffer_size = num * sizeof(long);
-        } 
-        else if (isFloat(info.arg_types[i])) {
-            buffer_size = num * sizeof(float);
-        } 
-        else if (isDouble(info.arg_types[i])) {
-            buffer_size = num * sizeof(double);
-        } else {
-            // We should never hit this    
-        }
-
-        int status = sendBytes(socket, info.args[i], buffer_size);
+    for (int i = 0; i < num_args; ++i) {
+        int buffer_size = argSize(arg_types[i]);
+        int status = sendBytes(socket, args[i], buffer_size);
         if (status < 0) {
             return status;
         }
@@ -272,63 +273,103 @@ static int sendArgs(int socket, const MessageInfo& info) {
     return 0;
 }
 
-static int sendReasonCode(int socket, const MessageInfo& info) {
-    return sendBytes(socket, &info.reason_code, sizeof(info.reason_code));
+int Message::sendReasonCode(const int& socket) {
+    return sendBytes(socket, &reason_code, sizeof(reason_code));
 }
 
-static int sendHeader(int socket, const MessageInfo& info) {
-    int status = sendBytes(socket, &info.length, sizeof(info.length));
+int Message::sendHeader(const int& socket) {
+    int status = sendBytes(socket, &length, sizeof(length));
     if (status < 0) {
         return status;
     }
-    return sendBytes(socket, &info.type, sizeof(info.type));
+    return sendBytes(socket, &type, sizeof(type));
 }
 
-int sendMessage(int socket, const MessageInfo& info) {
+int Message::sendMessage(const int& socket) {
 
-    sendHeader(socket, info);
-    switch (info.type) {
+    this->sendHeader(socket);
+    switch (type) {
         case REGISTER:
-            sendServerIdentifier(socket, info);
-            sendPort(socket, info);
-            sendName(socket, info);
-            sendArgTypes(socket, info);
+            this->sendServerIdentifier(socket);
+            this->sendPort(socket);
+            this->sendName(socket);
+            this->sendArgTypes(socket);
             break;
         case REGISTER_SUCCESS:
-            sendReasonCode(socket, info);
+            this->sendReasonCode(socket);
             break;
         case REGISTER_FAILURE:
-            sendReasonCode(socket, info);
+            this->sendReasonCode(socket);
             break;
         case LOC_REQUEST:
-            sendName(socket, info);
-            sendArgTypes(socket, info);
+            this->sendName(socket);
+            this->sendArgTypes(socket);
             break;
         case LOC_SUCCESS:
-            sendServerIdentifier(socket, info);
-            sendPort(socket, info);
+            this->sendServerIdentifier(socket);
+            this->sendPort(socket);
             break;
         case LOC_FAILURE:
-            sendReasonCode(socket, info);
+            this->sendReasonCode(socket);
             break;
         case EXECUTE:
-            sendName(socket, info);
-            sendArgTypes(socket, info);
-            sendArgs(socket, info);
+            this->sendName(socket);
+            this->sendArgTypes(socket);
+            this->sendArgs(socket);
             break;
         case EXECUTE_SUCCESS:
-            sendName(socket, info);
-            sendArgTypes(socket, info);
-            sendArgs(socket, info);
+            this->sendName(socket);
+            this->sendArgTypes(socket);
+            this->sendArgs(socket);
             break;
         case EXECUTE_FAILURE:
-            sendReasonCode(socket, info);
+            this->sendReasonCode(socket);
             break;
         case TERMINATE:
+        case NONE:
+        default:
             break;
     }
 
     return 0;
+}
+
+void Message::recalculateLength() {
+    switch (type) {
+        case REGISTER:
+            length = sizeof(server_identifier) + sizeof(port) + sizeof(name)
+                + sizeof(num_args) + sizeof(*arg_types) * num_args;
+            break;
+        case REGISTER_SUCCESS:
+        case REGISTER_FAILURE:
+        case LOC_FAILURE:
+        case EXECUTE_FAILURE:
+            length = sizeof(reason_code);
+            break;
+        case LOC_REQUEST:
+            length = sizeof(name) + sizeof(num_args)
+                + sizeof(*arg_types) * num_args;
+            break;
+        case LOC_SUCCESS:
+            length = sizeof(server_identifier) + sizeof(port);
+            break;
+        case EXECUTE:
+        case EXECUTE_SUCCESS:
+            length = sizeof(name) + sizeof(num_args)
+                + sizeof(*arg_types) * num_args;
+
+            // Add total arg size to length
+            for (int i = 0; i < num_args; ++i) {
+                length += argSize(arg_types[i]);
+            }
+
+            break;
+        case TERMINATE:
+        case NONE:
+        default:
+            length = 0;
+            break;
+    }
 }
 
 }

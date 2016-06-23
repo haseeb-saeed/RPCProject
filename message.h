@@ -22,8 +22,8 @@ enum MessageType {
     TERMINATE
 };
 
-// Message info
-struct MessageInfo {
+// Message
+class Message {
     int length;                 // The length of the message
     MessageType type;           // The type of message
     char name[64];              // The name of the machine/function
@@ -34,20 +34,50 @@ struct MessageInfo {
     int* arg_types;             // The types of args
     void** args;                // The function arguments
 
-    MessageInfo();              // Default constructor
+public:
+    Message();                          // Default constructor
+    int recvMessage(const int& socket); // Gets a message from the given socket
+    int sendMessage(const int& socket); // Sends a message to the given socket
+
+    void setType(const MessageType& type);
+    void setName(const char* name);
+    void setServerIdentifier(const char* identifier);
+    void setPort(const int& port);
+    void setReasonCode(const int& reason_code);
+    void setArgTypes(int* arg_types);
+    void setArgs(void** args);
+
+    MessageType getType() const;
+    const char* getName() const;
+    const char* getServerIndentifier() const;
+    int getPort() const;
+    int getReasonCode() const;
+    int* getArgTypes() const;
+    void** getArgs() const;
+
+    int getLength() const;
+    int numArgs() const;
+
+private:
+    int recvHeader(const int& socket);
+    int recvName(const int& socket);
+    int recvServerIdentifier(const int& socket);
+    int recvPort(const int& socket);
+    int recvReasonCode(const int& socket);
+    int recvArgTypes(const int& socket);
+    int recvArgs(const int& socket);
+
+    int sendBytes(const int& socket, const void* buffer, const int& buffer_size);
+    int sendHeader(const int& socket);
+    int sendName(const int& socket);
+    int sendServerIdentifier(const int& socket);
+    int sendPort(const int& socket);
+    int sendReasonCode(const int& socket);
+    int sendArgTypes(const int& socket);
+    int sendArgs(const int& socket);
+
+    void recalculateLength();
 };
-
-// Returns a tuple of the <length, request type>
-// A pair with length <= 0 indicates error/connection closed
-int getHeader(int socket, MessageInfo& info);
-
-// Places the message body into the struct
-// Returns < 0 for errors
-int getMessage(int socket, MessageInfo& info);
-
-// Sends the message constructed from info
-// Returns < 0 for errors
-int sendMessage(int socket, const MessageInfo& info);
 
 }
 

@@ -48,6 +48,28 @@ unsigned arrayLen(int arg_type) {
     return arg_type & 0xFFFF;    
 }
 
+int argSize(int arg_type) {
+    int num = arrayLen(arg_type);
+    num = max(num, 1);
+
+    if (isChar(arg_type)) {
+        return num * sizeof(char);
+    } else if (isShort(arg_type)) {
+        return num * sizeof(short);
+    } else if (isInt(arg_type)) {
+        return num * sizeof(int);
+    } else if (isLong(arg_type)) {
+        return num * sizeof(long);
+    } else if (isFloat(arg_type)) {
+        return num * sizeof(float);
+    } else if (isDouble(arg_type)) {
+        return num* sizeof(double);
+    } else {
+        // We should never hit this
+        return -1;
+    }
+}
+
 int numArgs(int* arg_types) {
     int count = 0;
     for (; arg_types[count] != 0; ++count);
