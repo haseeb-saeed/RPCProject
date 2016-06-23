@@ -29,7 +29,7 @@ using namespace std;
 static int binder_socket = SOCK_INVALID;
 static int client_socket = SOCK_INVALID;
 static unordered_map<string, skeleton> functions;
-static unordered_map<int, MessageInfo> client_info;
+static unordered_map<int, Message> requests;
 static vector<thread> calls;
 static int host_port = 0;
 static char host_name[64];
@@ -132,33 +132,27 @@ int rpcInit() {
 
 int rpcRegister(char* name, int* argTypes, skeleton f) {
 
-    // Create message info
-    MessageInfo info;
-    info.type = MessageType::REGISTER;
-    info.port = host_port;
-    info.num_args = numArgs(argTypes);
-    info.arg_types = argTypes;
-
-    memcpy(info.name, name, sizeof(info.name));
-    memcpy(info.server_identifier, host_name, sizeof(info.server_identifier));
-
-    // TODO: Make a function which returns the message length depending on type
-    info.length = sizeof(info.port) + sizeof(info.name) + sizeof(info.num_args) +
-        sizeof(info.server_identifier) + sizeof(*info.arg_types) * info.num_args;
+    // Construct message
+    Message msg;
+    msg.setType(MessageType::REGISTER);
+    msg.setName(name);
+    msg.setServerIdentifier(host_name);
+    msg.setPort(host_port);
+    msg.setArgTypes(argTypes);
 
     // Send message to binder
-    if (sendMessage(binder_socket, info) < 0) {
+    if (msg.sendMessage(binder_socket) < 0) {
         // TODO: Error code
         return -1;
     }
 
     // Get binder's response
-    if (getHeader(binder_socket, info) < 0) {
+    if (msg.recvHeader(binder_socket) < 0) {
         // TODO: Error code
         return -1;
     }
 
-    if (getMessage(binder_socket, info) < 0) {
+    if (msg.recvMessage(binder_socket) < 0) {
         // TODO: Error code
         return -1;
     }
@@ -167,46 +161,46 @@ int rpcRegister(char* name, int* argTypes, skeleton f) {
     string key = getSignature(name, argTypes); 
     functions[key] = f;
 
-    return info.reason_code;
+    return msg.getReasonCode();
 }
 
 static void executeAsync(int client) {
-
-    auto& info = client_info[client];
-    string key = getSignature(info.name, info.arg_types);
+    
+    auto& msg = requests[client];
+    string key = getSignature(msg.getName(), msg.getArgTypes());
     if (functions[key] == nullptr) {
-        // TODO: Error code
-        info.type = MessageType::EXECUTE_FAILED;
-        info.length = sizeof(info.reason_code);
-        if (sendMessage(client, info) < 0) {
+        // TODO: Send back execute failure with function missing
+        msg.setType(MessageType::EXECUTE_FAILURE);
+        msg.setReasonCode(-1);
+        if (msg.sendMessage(client) < 0) {
             return;
         }
     }
 
-    int status = (functions[key])(info.arg_types, info.args);
+    int status = (functions[key])(msg.getArgTypes(), msg.getArgs());
     if (status < 0) {
         // TODO: Send back EXECUTE_FAILED with function error    
-        info.type = MessageType::EXECUTE_FAILURE;
-        info.length = sizeof(info.reason_code);
-        if (sendMessage(client, info) < 0) {
+        msg.setType(MessageType::EXECUTE_FAILURE);
+        msg.setReasonCode(-1);
+        if (msg.sendMessage(client) < 0) {
             return;
         }
     }
 
-    // TODO: Length
-    info.type = MessageType::EXECUTE_SUCCESS;
-    if (sendMessage(client, info) < 0) {
+    msg.setType(MessageType::EXECUTE_SUCCESS);
+    if (msg.sendMessage(client) < 0) {
         return;
     }
 
     // TODO: Since we're most likely done with info here, clean up
     // the allocated memory
-    client_info.erase(client);
+    requests.erase(client);
     close(client);
 }
 
 int rpcExecute() {
 
+    /*
     fd_set master_set, read_set;
     FD_ZERO(&master_set);
     FD_SET(client_socket, &master_set);
@@ -264,6 +258,6 @@ int rpcExecute() {
    
     close(binder_socket);
     close(client_socket);
- 
+    */
     return 0;
 }
