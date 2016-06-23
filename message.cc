@@ -11,7 +11,8 @@ using namespace std;
 namespace message {
 
 Message::Message(): length(0), type(MessageType::NONE), port(0),
-    reason_code(0), num_args(0), arg_types(nullptr), args(nullptr) {
+    reason_code(0), num_args(0), arg_types(nullptr), args(nullptr),
+    HEADER_SIZE(sizeof(length) + sizeof(type)) {
 }
 
 void Message::setType(const MessageType& type) {
@@ -223,6 +224,14 @@ int Message::recvMessage(const int& socket) {
     }
 
     return 0;
+}
+
+int Message::peekHeader(const int& socket) {
+    return recv(socket, nullptr, sizeof(length) + sizeof(type), MSG_PEEK);
+}
+
+int Message::peekMessage(const int& socket) {
+    return recv(socket, nullptr, length, MSG_PEEK);
 }
 
 int Message::sendBytes(const int& socket, const void* buffer, const int& buffer_size) {
