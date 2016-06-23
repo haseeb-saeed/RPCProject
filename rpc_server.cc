@@ -142,7 +142,8 @@ int rpcRegister(char* name, int* argTypes, skeleton f) {
     memcpy(info.name, name, sizeof(info.name));
     memcpy(info.server_identifier, host_name, sizeof(info.server_identifier));
 
-    info.length = sizeof(info.port) + sizeof(info.name) +
+    // TODO: Make a function which returns the message length depending on type
+    info.length = sizeof(info.port) + sizeof(info.name) + sizeof(info.num_args) +
         sizeof(info.server_identifier) + sizeof(*info.arg_types) * info.num_args;
 
     // Send message to binder
