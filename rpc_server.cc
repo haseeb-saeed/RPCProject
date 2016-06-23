@@ -200,7 +200,6 @@ static void executeAsync(int client) {
 
 int rpcExecute() {
 
-    /*
     fd_set master_set, read_set;
     FD_ZERO(&master_set);
     FD_SET(client_socket, &master_set);
@@ -228,14 +227,20 @@ int rpcExecute() {
                     max_socket = max(max_socket, client); 
                 }
             } else {                
-                auto& info = client_info[i];
-                if (info.type == MessageType::NONE) {
-                    // TODO: Read the message header
+                auto& msg = requests[i];
+                if (msg.getType() == MessageType::NONE) {
                     // Peek at the header and continue
                     // if we don't have all 8 bytes
-                    getHeader(i, info);
+                    int bytes = msg.peekHeader(i);
+                    if (bytes <= 0) {
+                        // TODO: Close connection
+                    } else if (bytes < msg.HEADER_SIZE) {
+                        continue;
+                    } else if (msg.recvHeader(i) < 0) {
+                        // TODO: Something
+                    }
 
-                    if (info.type == MessageType::TERMINATE) {
+                    if (msg.getType() == MessageType::TERMINATE) {
                         // Wait for all threads to be done
                         for (auto& th : calls) {
                             th.join();    
@@ -243,10 +248,16 @@ int rpcExecute() {
                         break;
                     } 
                 } else {
-                    // TODO: Read the message body
                     // Peek at the body and continue if
                     // we don't have the full length
-                    getMessage(i, info);
+                    int bytes = msg.peekMessage(i);
+                    if (bytes <= 0) {
+                        // TODO: Close connection
+                    } else if (bytes < msg.getLength()) {
+                        continue;
+                    } else if (msg.recvMessage(i) < 0) {
+                        // TODO: Something
+                    }
 
                     FD_CLR(i, &master_set);
                     thread th(executeAsync, i);
@@ -258,6 +269,5 @@ int rpcExecute() {
    
     close(binder_socket);
     close(client_socket);
-    */
     return 0;
 }
