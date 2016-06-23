@@ -13,40 +13,73 @@ using namespace std;
 using namespace message;
 
 int main() {
-    int status;
+
     addrinfo host_info, *host_info_list;
-
     memset(&host_info, 0, sizeof host_info);
-
     host_info.ai_family = AF_UNSPEC;
     host_info.ai_socktype = SOCK_STREAM;
-
     host_info.ai_flags = AI_PASSIVE;
-    status = getaddrinfo(NULL, "0", &host_info, &host_info_list);
-    if (status != 0) cerr << "getaddrinfo errori: " << gai_strerror(status) << endl;
+
+    int status = getaddrinfo(NULL, "0", &host_info, &host_info_list); 
+    if (status < 0) {
+        cerr << "getaddrinfo error: " << gai_strerror(status) << endl;
+        return EXIT_FAILURE;
+   }
 
     // Create socket
     int socketfd;
     socketfd = socket(host_info_list->ai_family, host_info_list->ai_socktype, host_info_list->ai_protocol);
-    if (socketfd == -1) cerr << "socket error" << endl;
+    if (socketfd == -1) {
+        cerr << "socket error" << endl;
+        return EXIT_FAILURE;
+    }
 
     // Bind
-    int yes = 1;
-    setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
-    status = ::bind(socketfd, host_info_list->ai_addr, host_info_list->ai_addrlen);
-    if (status == -1) cerr << "bind error" << endl;
+    status = bind(socketfd, host_info_list->ai_addr, host_info_list->ai_addrlen);
     freeaddrinfo(host_info_list);
+    if (status == -1) {
+        cerr << "bind error" << endl;
+        close(socketfd);
+        return EXIT_FAILURE;
+    }
 
     // Listen
-    status = listen(socketfd, 10);
-    if (status == -1) cerr << "listen error" << endl;
+    if (listen(socketfd, 5) < 0) {
+        cerr << "listen error" << endl;
+        close(socketfd);
+        return EXIT_FAILURE;
+    }
 
-    // Accept
-    int new_sd;
-    struct sockaddr_storage client_addr;
-    socklen_t addr_size = sizeof(client_addr);
-    new_sd = accept(socketfd, (struct sockaddr *)&client_addr, &addr_size);
-    if (new_sd == -1) cerr << "listen error" << endl;
+    // Get hostname and port
+    sockaddr_in addr;
+    socklen_t len = sizeof(addr);
+    if (getsockname(socketfd, (sockaddr*)&addr, &len) < 0) {
+        cerr << "getsockname error" << endl;
+        close(socketfd);
+        return EXIT_FAILURE;
+    }
+
+    char host_name[64];
+    if (gethostname(host_name, sizeof(host_name)) < 0) {
+        cerr << "gethostname error" << endl;
+        close(socketfd);
+        return EXIT_FAILURE;
+    }
+
+    auto host = gethostbyname(host_name);
+    if (host == nullptr) {
+        cerr << "gethostbyname error" << endl;
+        close(socketfd);
+        return EXIT_FAILURE;
+    }
+
+    int port = ntohs(addr.sin_port);
+    cout << "BINDER ADDRESS " << host->h_name << endl;
+    cout << "BINDER PORT " << port << endl;
+
+    for(;;) {
+        // TODO: Stuff
+    }
 
     return 0;
 }
