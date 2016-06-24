@@ -9,8 +9,18 @@
 #include <sys/types.h>
 #include <unordered_map>
 #include <stdlib.h>
+#include <utility>
+
 using namespace std;
 using namespace message;
+
+struct entry {
+    int socketfd;
+    string location;
+    int port;
+};
+
+unordered_map<string, entry> database;
 
 int main() {
 
