@@ -223,7 +223,7 @@ int rpcExecute() {
                 // Accept the incoming connection
                 int client = accept(client_socket, nullptr, nullptr);
                 if (client != SOCK_INVALID) {
-                    FD_SET(i, &master_set);
+                    FD_SET(client, &master_set);
                     max_socket = max(max_socket, client); 
                 }
             } else {                
