@@ -1,3 +1,4 @@
+#include "args.h"
 #include "binder.h"
 #include "message.h"
 #include <iostream>
@@ -12,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+using namespace args;
 using namespace std;
 using namespace message;
 
@@ -21,7 +23,7 @@ struct Entry {
     int port;
 };
 
-unordered_map<string, vector<Entry>> database;
+unordered_map<string, pair<vector<Entry>, int>> database;
 unordered_map<int, Message> requests;
 
 void registerFunction(int socketfd) {
@@ -29,7 +31,30 @@ void registerFunction(int socketfd) {
 }
 
 void getLocation(int socketfd) {
-    // TODO: Stuff    
+
+    auto& msg = requests[socketfd];
+    const string key = getSignature(msg.getName(), msg.getArgTypes());
+    auto& entry = database[key];
+    const int size = entry.first.size();
+    
+    for (int i = 0; i < size; ++i) {
+        int index = entry.second;
+        entry.second = (entry.second + 1) % size;
+
+        const auto& location_info = entry.first[index];
+        // TODO: Ping the server - if down, ignore
+        
+        msg.setType(MessageType::LOC_SUCCESS);
+        msg.setServerIdentifier(location_info.location.c_str());
+        msg.setPort(location_info.port);
+        msg.sendMessage(socketfd);
+        return;
+    }
+
+    // TODO: Reason code
+    msg.setType(MessageType::LOC_FAILURE);
+    msg.setReasonCode(-1);
+    msg.sendMessage(socketfd);
 }
 
 int main() {
