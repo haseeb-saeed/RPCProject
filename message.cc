@@ -54,7 +54,7 @@ const char* Message::getName() const {
     return name;
 }
 
-const char* Message::getServerIndentifier() const {
+const char* Message::getServerIdentifier() const {
     return server_identifier;
 }
                                             

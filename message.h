@@ -52,7 +52,7 @@ public:
 
     MessageType getType() const;
     const char* getName() const;
-    const char* getServerIndentifier() const;
+    const char* getServerIdentifier() const;
     int getPort() const;
     int getReasonCode() const;
     int* getArgTypes() const;

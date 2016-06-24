@@ -1,6 +1,7 @@
 #include "args.h"
 #include "binder.h"
 #include "message.h"
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <cstring>
@@ -21,13 +22,38 @@ struct Entry {
     int socketfd;
     string location;
     int port;
+
+    Entry(const int& socketfd, const char* location, const int& port):
+        socketfd(socketfd), location(location), port(port) {
+    }
+
+    friend bool operator== (const Entry& e1, const Entry &e2);
 };
+
+bool operator== (const Entry& e1, const Entry& e2) {
+    return e1.location == e2.location && e1.port == e2.port;
+}
 
 unordered_map<string, pair<vector<Entry>, int>> database;
 unordered_map<int, Message> requests;
 
 void registerFunction(int socketfd) {
-    // TODO: Stuff
+
+    auto& msg = requests[socketfd];
+    const string key = getSignature(msg.getName(), msg.getArgTypes());
+    auto& list = database[key].first;
+
+    Entry entry(socketfd, msg.getServerIdentifier(), msg.getPort());
+    if (find(list.begin(), list.end(), entry) == list.end()) {
+        list.push_back(entry);
+        msg.setReasonCode(0);
+    } else {
+        // TODO: Reason code
+        msg.setReasonCode(1);
+    }
+
+    msg.setType(MessageType::REGISTER_SUCCESS);
+    msg.sendMessage(socketfd);
 }
 
 void getLocation(int socketfd) {
