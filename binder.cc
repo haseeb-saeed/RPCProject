@@ -1,5 +1,6 @@
 #include "args.h"
 #include "binder.h"
+#include "codes.h"
 #include "message.h"
 #include <algorithm>
 #include <iostream>
@@ -15,6 +16,7 @@
 #include <vector>
 
 using namespace args;
+using namespace codes;
 using namespace std;
 using namespace message;
 
@@ -48,8 +50,7 @@ void registerFunction(int socketfd) {
         list.push_back(entry);
         msg.setReasonCode(0);
     } else {
-        // TODO: Reason code
-        msg.setReasonCode(1);
+        msg.setReasonCode(WARNING_DUPLICATE_FUNCTION);
     }
 
     msg.setType(MessageType::REGISTER_SUCCESS);
@@ -77,9 +78,8 @@ void getLocation(int socketfd) {
         return;
     }
 
-    // TODO: Reason code
     msg.setType(MessageType::LOC_FAILURE);
-    msg.setReasonCode(-1);
+    msg.setReasonCode(ERROR_MISSING_FUNCTION);
     msg.sendMessage(socketfd);
 }
 

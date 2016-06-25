@@ -18,11 +18,13 @@
 #include <unistd.h>
 
 #include "args.h"
+#include "codes.h"
 #include "message.h"
 #include "rpc.h"
 
 #define SOCK_INVALID -1
 using namespace args;
+using namespace codes;
 using namespace message;
 using namespace std;
 
@@ -40,8 +42,7 @@ int rpcInit() {
     const char* binder_addr = getenv("BINDER_ADDRESS");
     const char* binder_port = getenv("BINDER_PORT");
     if (binder_addr == nullptr || binder_port == nullptr) {
-        // TODO: Error code
-        return -1;    
+        return ERROR_MISSING_ENV;    
     }
 
     // Get information for the server address
@@ -51,31 +52,27 @@ int rpcInit() {
     hints.ai_socktype = SOCK_STREAM;
 
     if (getaddrinfo(binder_addr, binder_port, &hints, &addr) != 0) {
-        // TODO: Error code
-        return -1;    
+        return ERROR_ADDRINFO;    
     }
 
     // Connect to binder
     binder_socket = socket(PF_INET, SOCK_STREAM, 0);
     if (binder_socket == SOCK_INVALID) {
-        // TODO: Error code
-        return -1;    
+        return ERROR_SOCKET_CREATE;
     }
 
     int status = connect(binder_socket, addr->ai_addr, addr->ai_addrlen);
     freeaddrinfo(addr);
     if (status < 0) {
-        // TODO: Error code
         close(binder_socket);
-        return -1;
+        return ERROR_SOCKET_CONNECT;
     }
 
     // Open socket for clients to connect to
     client_socket = socket(PF_INET, SOCK_STREAM, 0);
     if (client_socket == SOCK_INVALID) {
-        // TODO: Error code
         close(binder_socket);
-        return -1;    
+        return ERROR_SOCKET_CREATE;    
     }
 
     memset(&hints, 0, sizeof(hints));
@@ -84,44 +81,39 @@ int rpcInit() {
     hints.ai_flags = AI_PASSIVE;
 
     if (getaddrinfo(nullptr, "0", &hints, &addr) != 0) {
-        // TODO: Error code
         close(binder_socket);
         close(client_socket);
-        return -1; 
+        return ERROR_ADDRINFO;
     }
 
     status = bind(client_socket, addr->ai_addr, addr->ai_addrlen);
     freeaddrinfo(addr);
     if (status < 0) {
-        // TODO: Error code
         close(binder_socket);
         close(client_socket);
-        return -1;    
+        return ERROR_SOCKET_BIND;    
     }
     
     // Get the server name and port
     sockaddr_in server_addr;
     socklen_t len = sizeof(server_addr);
     if (getsockname(client_socket, (sockaddr*)&server_addr, &len) < 0) {
-        // TODO: Error code
         close(binder_socket);
         close(client_socket);
-        return -1;
+        return ERROR_SOCKET_NAME;
     }
 
     if (gethostname(host_name, sizeof(host_name)) < 0) {
-        // TODO: Error code
         close(binder_socket);
         close(client_socket);
-        return -1;
+        return ERROR_HOSTNAME;
     }
 
     auto host = gethostbyname(host_name);
     if (host == nullptr) {
-        // TODO: Error code
         close(binder_socket);
         close(client_socket);
-        return -1;
+        return ERROR_HOSTNAME;
     }
 
     host_port = ntohs(server_addr.sin_port);
@@ -142,19 +134,16 @@ int rpcRegister(char* name, int* argTypes, skeleton f) {
 
     // Send message to binder
     if (msg.sendMessage(binder_socket) < 0) {
-        // TODO: Error code
-        return -1;
+        return ERROR_MESSAGE_SEND;
     }
 
     // Get binder's response
     if (msg.recvHeader(binder_socket) < 0) {
-        // TODO: Error code
-        return -1;
+        return ERROR_MESSAGE_RECV;
     }
 
     if (msg.recvMessage(binder_socket) < 0) {
-        // TODO: Error code
-        return -1;
+        return ERROR_MESSAGE_RECV;
     }
 
     // Add function to local datatabse
@@ -206,8 +195,7 @@ int rpcExecute() {
     int max_socket = client_socket;
 
     if (listen(client_socket, 5) < 0) {
-        // TODO: Error code
-        return -1;
+        return ERROR_SOCKET_LISTEN;
     }
 
     for (;;) {
