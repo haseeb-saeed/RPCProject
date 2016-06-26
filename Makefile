@@ -22,4 +22,4 @@ $(EXECUTABLE): $(EXEC_OBJECTS) $(SHARED_OBJECTS)
 	$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	rm $(LIBRARY) $(OBJECTS)
+	rm $(LIBRARY) $(EXECUTABLE) $(OBJECTS)
