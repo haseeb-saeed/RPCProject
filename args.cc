@@ -80,7 +80,7 @@ bool isEnd(int arg_type) {
     return arg_type == 0;    
 }
 
-string getSignature(char* name, int* arg_types) {
+string getSignature(const char* name, int* arg_types) {
     string signature(name);
 
     for (int i = 0; !isEnd(arg_types[i]); ++i) {
