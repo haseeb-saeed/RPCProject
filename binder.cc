@@ -10,6 +10,7 @@
 #include <sys/unistd.h>
 #include <sys/types.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <stdlib.h>
 #include <utility>
 #include <vector>
@@ -37,9 +38,11 @@ bool operator== (const Entry& e1, const Entry& e2) {
 
 unordered_map<string, pair<vector<Entry>, int>> database;
 unordered_map<int, Message> requests;
+unordered_set<int> servers;
 
 void registerFunction(int socketfd) {
 
+    servers.insert(socketfd);
     auto& msg = requests[socketfd];
     const string key = getSignature(msg.getName(), msg.getArgTypes());
     auto& list = database[key].first;
@@ -191,25 +194,48 @@ int main() {
                         // TODO: Stuff    
                     }
                     
+                    bool terminate = false;
                     switch (msg.getType()) {
                         case MessageType::REGISTER:
                             registerFunction(i);
                             break;
                         case MessageType::LOC_REQUEST:
                             getLocation(i);
+                            FD_CLR(i, &master_set);
+                            close(i);
                             break;
+                        case MessageType::TERMINATE:
                         default:
-                            // TODO: Should we handle wrong types?
+                            terminate = true;
                             break;
                     }
 
                     // TODO: Is there any other cleanup required?
                     requests.erase(i);
-                    FD_CLR(i, &master_set);
+
+                    if (terminate) {
+                        break;
+                    }
                 }
             }
         }
     }
 
+    Message msg;
+    msg.setType(MessageType::TERMINATE);
+
+    // Tell all servers to terminate
+    for (const auto& server : servers) {
+        msg.sendMessage(server);
+    }
+
+    // Close all connections
+    for (int i = 0; i <= maxfd; ++i) {
+        if (FD_ISSET(i, &master_set)) {
+            close(i);
+        }
+    }
+
+    // TODO: Deallocate any memory?
     return 0;
 }
