@@ -38,8 +38,7 @@ public:
     Message();                          // Default constructor
     int recvHeader(const int& socket);  // Gets a message header from the given socket
     int recvMessage(const int& socket); // Gets a message body from the given socket
-    int peekHeader(const int& socket);  // Checks if all header bytes have arrived
-    int peekMessage(const int& socket); // Checks if all message body bytes have arrived
+    int peek(const int& socket);        // Gets the number of bytes in the socket's buffer
     int sendMessage(const int& socket); // Sends a message to the given socket
 
     void setType(const MessageType& type);

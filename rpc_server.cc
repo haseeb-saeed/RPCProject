@@ -219,7 +219,7 @@ int rpcExecute() {
                 if (msg.getType() == MessageType::NONE) {
                     // Peek at the header and continue
                     // if we don't have all 8 bytes
-                    int bytes = msg.peekHeader(i);
+                    int bytes = msg.peek(i);
                     if (bytes <= 0) {
                         // TODO: Close connection
                     } else if (bytes < msg.HEADER_SIZE) {
@@ -238,7 +238,7 @@ int rpcExecute() {
                 } else {
                     // Peek at the body and continue if
                     // we don't have the full length
-                    int bytes = msg.peekMessage(i);
+                    int bytes = msg.peek(i);
                     if (bytes <= 0) {
                         // TODO: Close connection
                     } else if (bytes < msg.getLength()) {

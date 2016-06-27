@@ -172,7 +172,7 @@ int main() {
                 auto& msg = requests[i];
                 if (msg.getType() == MessageType::NONE) {
                     // Peek to see if the heaer has arrived
-                    int bytes = msg.peekHeader(i);
+                    int bytes = msg.peek(i);
                     if (bytes <= 0) {
                         // TODO: Stuff    
                     } else if (bytes < msg.HEADER_SIZE) {
@@ -182,7 +182,7 @@ int main() {
                     }
                 } else {
                     // Peek to see if the body has arrived
-                    int bytes = msg.peekMessage(i);
+                    int bytes = msg.peek(i);
                     if (bytes <= 0) {
                         // TODO: Stuff    
                     } else if (bytes < msg.getLength()) {

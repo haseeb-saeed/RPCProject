@@ -1,6 +1,7 @@
 #include <cstring>
 #include <iostream>
 
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 
 #include "args.h"
@@ -226,12 +227,10 @@ int Message::recvMessage(const int& socket) {
     return 0;
 }
 
-int Message::peekHeader(const int& socket) {
-    return recv(socket, nullptr, sizeof(length) + sizeof(type), MSG_PEEK);
-}
-
-int Message::peekMessage(const int& socket) {
-    return recv(socket, nullptr, length, MSG_PEEK);
+int Message::peek(const int& socket) {
+    int bytes;
+    ioctl(socket, FIONREAD, &bytes);
+    return bytes;
 }
 
 int Message::sendBytes(const int& socket, const void* buffer, const int& buffer_size) {
