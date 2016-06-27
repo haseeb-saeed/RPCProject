@@ -229,7 +229,9 @@ int Message::recvMessage(const int& socket) {
 
 int Message::peek(const int& socket) {
     int bytes;
-    ioctl(socket, FIONREAD, &bytes);
+    if (ioctl(socket, FIONREAD, &bytes) < 0) {
+        return -1;
+    }
     return bytes;
 }
 
