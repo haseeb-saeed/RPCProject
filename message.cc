@@ -133,8 +133,6 @@ int Message::recvArgs(const int& socket) {
 
     for (int i = 0; i < num_args; ++i) {
         int buffer_size = argSize(arg_types[i]);
-        cout << "buffer size is " << buffer_size << endl;
-
         void* buffer = (void*) new char[buffer_size];
         int status = recv(socket, buffer, buffer_size, MSG_WAITALL);
         if (status <= 0) {
