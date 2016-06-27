@@ -158,9 +158,8 @@ static void executeAsync(int client) {
     auto& msg = requests[client];
     string key = getSignature(msg.getName(), msg.getArgTypes());
     if (functions[key] == nullptr) {
-        // TODO: Send back execute failure with function missing
         msg.setType(MessageType::EXECUTE_FAILURE);
-        msg.setReasonCode(-1);
+        msg.setReasonCode(ERROR_MISSING_FUNCTION);
         if (msg.sendMessage(client) < 0) {
             return;
         }
@@ -168,9 +167,8 @@ static void executeAsync(int client) {
 
     int status = (functions[key])(msg.getArgTypes(), msg.getArgs());
     if (status < 0) {
-        // TODO: Send back EXECUTE_FAILED with function error    
         msg.setType(MessageType::EXECUTE_FAILURE);
-        msg.setReasonCode(-1);
+        msg.setReasonCode(ERROR_FUNCTION_CALL);
         if (msg.sendMessage(client) < 0) {
             return;
         }

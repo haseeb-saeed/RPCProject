@@ -19,6 +19,7 @@ namespace codes {
         ERROR_MESSAGE_SEND = -11,
         ERROR_MESSAGE_RECV = -12,
         ERROR_MISSING_FUNCTION = -13,
+        ERROR_FUNCTION_CALL = -14,
     };
 }
 
