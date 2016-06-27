@@ -159,7 +159,7 @@ void receive(Message& msg, int socketfd, MessageType type) {
    
     int bytes = 0;
     while (bytes == 0) {
-        bytes = msg.peekHeader(socketfd);
+        bytes = msg.peek(socketfd);
     }
     cout << "Peeked " << bytes << " bytes" << endl;
 
@@ -167,7 +167,7 @@ void receive(Message& msg, int socketfd, MessageType type) {
     assert (msg.getType() == type);
 
     cout << "Receiving message of length " << msg.getLength() << endl;
-    bytes = msg.peekMessage(socketfd);
+    bytes = msg.peek(socketfd);
     cout << "Peeked " << bytes << " bytes" << endl;
     msg.recvMessage(socketfd);
     cout << "Receiving complete" << endl;
