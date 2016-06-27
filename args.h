@@ -18,10 +18,9 @@ bool isInput(int arg_type);
 bool isOutput(int arg_type);
 
 // Miscellaneous
-unsigned arrayLen(int arg_type);
+int arrayLen(int arg_type);
 int numArgs(int* arg_types);
 int argSize(int arg_type);
-bool isEnd(int arg_type);
 std::string getSignature(const char* name, int* arg_types);
 
 }

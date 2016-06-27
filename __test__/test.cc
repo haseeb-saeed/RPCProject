@@ -78,6 +78,58 @@ void** createArgs() {
     return args;
 }
 
+void printArgs(int* arg_types, void** args) {
+
+    for (int i = 0; i < numArgs(arg_types); ++i) {
+        int num = max(arrayLen(arg_types[i]), 1);
+        cout << "num " << num << endl;
+
+        if (isChar(arg_types[i])) {
+            cout << "CHAR" << endl;
+            char* arg = (char*)(args[i]);
+            for (int j = 0; j < num; ++j) {
+                cout << arg[j] << " ";
+            }
+            cout << endl;
+        } else if (isShort(arg_types[i])) {
+            cout << "SHORT" << endl;
+            short* arg = (short*)(args[i]);
+            for (int j = 0; j < num; ++j) {
+                cout << arg[j] << " ";
+            }
+            cout << endl;
+        } else if (isInt(arg_types[i])) {
+            cout << "INT" << endl;
+            int* arg = (int*)(args[i]);
+            for (int j = 0; j < num; ++j) {
+                cout << arg[j] << " ";
+            }
+            cout << endl;
+        } else if (isLong(arg_types[i])) {
+            cout << "LONG" << endl;
+            long* arg = (long*)(args[i]);
+            for (int j = 0; j < num; ++j) {
+                cout << arg[j] << " ";
+            }
+            cout << endl;
+        } else if (isFloat(arg_types[i])) {
+            cout << "FLOAT" << endl;
+            float* arg = (float*)(args[i]);
+            for (int j = 0; j < num; ++j) {
+                cout << arg[j] << " ";
+            }
+            cout << endl;
+        } else if (isDouble(arg_types[i])) {
+            cout << "DOUBLE" << endl;
+            double* arg = (double*)(args[i]);
+            for (int j = 0; j < num; ++j) {
+                cout << arg[j] << " ";
+            }
+            cout << endl;
+        }
+    }
+}
+
 void cleanupArgs(int* arg_types, void** args) {
 
     int num_args = numArgs(arg_types);
@@ -96,6 +148,23 @@ void cleanupArgTypes(int* arg_types) {
     delete arg_types;
 }
 
+void send(Message& msg, int socketfd) {
+
+    cout << "Sending message of length " << msg.getLength() << endl;
+    msg.sendMessage(socketfd);
+    cout << "Sending complete" << endl;
+}
+
+void receive(Message& msg, int socketfd, MessageType type) {
+    
+    msg.recvHeader(socketfd);
+    assert (msg.getType() == type);
+
+    cout << "Receiving message of length " << msg.getLength() << endl;
+    msg.recvMessage(socketfd);
+    cout << "Receiving complete" << endl;
+}
+
 void testRegisterServer(int socketfd) {
 
     // Send request
@@ -108,24 +177,17 @@ void testRegisterServer(int socketfd) {
     msg.setName("name");
     msg.setArgTypes(arg_types);
 
-    cout << "Sending message of length " << msg.getLength() << endl;
     cout << "numArgs " << numArgs(arg_types) << " " << msg.numArgs() << endl;
     for (int i = 0; i < msg.numArgs(); ++i) {
         cout << arg_types[i] << " ";
     }
     cout << endl;
 
-    msg.sendMessage(socketfd);
-    cout << "Done" << endl;
-
+    send(msg, socketfd);
     cleanupArgTypes(arg_types);
 
     // Get reply
-    msg.recvHeader(socketfd);
-    assert (msg.getType() == MessageType::REGISTER_SUCCESS);
-    cout << "Receiving message of length " << msg.getLength() << endl;
-    
-    msg.recvMessage(socketfd);
+    receive(msg, socketfd, REGISTER_SUCCESS);
     cout << msg.getReasonCode() << endl;
 }
 
@@ -133,11 +195,7 @@ void testRegisterClient(int socketfd) {
 
     // Get request
     Message msg;
-    msg.recvHeader(socketfd);
-    assert (msg.getType() == MessageType::REGISTER);
-    cout << "Receiving message of length " << msg.getLength() << endl;
-    
-    msg.recvMessage(socketfd);
+    receive(msg, socketfd, MessageType::REGISTER);
     cout << msg.getServerIdentifier() << endl;
     cout << msg.getPort() << endl;
     cout << msg.getName() << endl;
@@ -152,8 +210,40 @@ void testRegisterClient(int socketfd) {
     // Send reply
     msg.setType(MessageType::REGISTER_SUCCESS);
     msg.setReasonCode(5);
-    cout << "Sending message of length " << msg.getLength() << endl;
-    msg.sendMessage(socketfd);
+    send(msg, socketfd);
+}
+
+void testExecuteServer(int socketfd) {
+
+    auto arg_types = createArgTypes();
+    auto args = createArgs();
+
+    Message msg;
+    msg.setType(MessageType::EXECUTE);
+    msg.setName("foo");
+    msg.setArgTypes(arg_types);
+    msg.setArgs(args);
+    send(msg, socketfd);
+
+    cleanupArgs(arg_types, args);
+    cleanupArgTypes(arg_types);
+
+    receive(msg, socketfd, MessageType::EXECUTE_FAILURE);
+    cout << msg.getReasonCode() << endl;
+}
+
+void testExecuteClient(int socketfd) {
+
+    Message msg;
+    receive(msg, socketfd, MessageType::EXECUTE);
+
+    printArgs(msg.getArgTypes(), msg.getArgs());
+    cleanupArgs(msg.getArgTypes(), msg.getArgs());
+    cleanupArgTypes(msg.getArgTypes());
+
+    msg.setType(MessageType::EXECUTE_FAILURE);
+    msg.setReasonCode(-1);
+    send(msg, socketfd);
 }
 
 void runServer() {
@@ -176,6 +266,7 @@ void runServer() {
     cout << "Accept " << client << endl;
 
     testRegisterServer(client);
+    testExecuteServer(client);
 }
 
 void runClient() {
@@ -193,6 +284,7 @@ void runClient() {
     cout << "Connect " << status << " " << errno << endl;
 
     testRegisterClient(socketfd);
+    testExecuteClient(socketfd);
 }
 
 int main() {

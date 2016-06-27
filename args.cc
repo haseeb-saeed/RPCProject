@@ -6,34 +6,32 @@ using namespace std;
 
 namespace args {
 
+static bool isType(int arg_type, int type) {
+    return (arg_type & 0xFF0000) == (type << 16);
+}
+
 bool isChar(int arg_type) {
-    int mask = ARG_CHAR << 16;
-    return (arg_type & mask) == mask;
+    return isType(arg_type, ARG_CHAR);
 }
 
 bool isShort(int arg_type) {
-    int mask = ARG_SHORT << 16;
-    return (arg_type & mask) == mask;
+    return isType(arg_type, ARG_SHORT);
 }
 
 bool isInt(int arg_type) {
-    int mask = ARG_INT << 16;
-    return (arg_type & mask) == mask;
+    return isType(arg_type, ARG_INT);
 }
 
 bool isLong(int arg_type) {
-    int mask = ARG_LONG << 16;
-    return (arg_type & mask) == mask;
+    return isType(arg_type, ARG_LONG);
 }
 
 bool isDouble(int arg_type) {
-    int mask = ARG_DOUBLE << 16;
-    return (arg_type & mask) == mask;
+    return isType(arg_type, ARG_DOUBLE);
 }
 
 bool isFloat(int arg_type) {
-    int mask = ARG_FLOAT << 16;
-    return (arg_type & mask) == mask;
+    return isType(arg_type, ARG_FLOAT);
 }
 
 bool isInput(int arg_type) {
@@ -44,13 +42,12 @@ bool isOutput(int arg_type) {
     return arg_type & (1 << ARG_OUTPUT);
 }
 
-unsigned arrayLen(int arg_type) {
-    return arg_type & 0xFFFF;    
+int arrayLen(int arg_type) {
+    return arg_type & 0xFFFF;
 }
 
 int argSize(int arg_type) {
-    int num = arrayLen(arg_type);
-    num = max(num, 1);
+    int num = max(arrayLen(arg_type), 1);
 
     if (isChar(arg_type)) {
         return num * sizeof(char);
@@ -76,14 +73,10 @@ int numArgs(int* arg_types) {
     return count;
 }
 
-bool isEnd(int arg_type) {
-    return arg_type == 0;    
-}
-
 string getSignature(const char* name, int* arg_types) {
     string signature(name);
 
-    for (int i = 0; !isEnd(arg_types[i]); ++i) {
+    for (int i = 0; arg_types[i] != 0; ++i) {
         int temp = arg_types[i];
 
         // Since array length is not part of the signature
