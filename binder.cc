@@ -20,39 +20,32 @@ using namespace codes;
 using namespace std;
 using namespace message;
 
-struct Entry {
-    int socketfd;
-    string location;
-    int port;
-
-    Entry(const int& socketfd, const char* location, const int& port):
-        socketfd(socketfd), location(location), port(port) {
-    }
-
-    friend bool operator== (const Entry& e1, const Entry &e2);
-};
-
-bool operator== (const Entry& e1, const Entry& e2) {
-    return e1.location == e2.location && e1.port == e2.port;
-}
-
-unordered_map<string, pair<vector<Entry>, int>> database;
+typedef pair<string, int> Location;
+unordered_map<string, pair<vector<Location>, int>> database;
+unordered_map<string, unordered_set<string>> registered_functions;
+unordered_map<int, Location> servers;
 unordered_map<int, Message> requests;
-unordered_set<int> servers;
+
+string getHash(const Location& location) {
+    
+    return location.first + to_string(location.second);
+}
 
 void registerFunction(int socketfd) {
 
-    servers.insert(socketfd);
     auto& msg = requests[socketfd];
-    const string key = getSignature(msg.getName(), msg.getArgTypes());
-    auto& list = database[key].first;
+    Location location(msg.getServerIdentifier(), msg.getPort());
+    servers[socketfd] = location;
 
-    Entry entry(socketfd, msg.getServerIdentifier(), msg.getPort());
-    if (find(list.begin(), list.end(), entry) == list.end()) {
-        list.push_back(entry);
-        msg.setReasonCode(0);
-    } else {
+    const string key = getSignature(msg.getName(), msg.getArgTypes());
+    auto& functions = registered_functions[getHash(location)];
+    if (functions.find(key) != functions.end()) {
         msg.setReasonCode(WARNING_DUPLICATE_FUNCTION);
+    } else {
+        auto& list = database[key].first;
+        list.push_back(location);
+        functions.insert(key);
+        msg.setReasonCode(0);
     }
 
     msg.setType(MessageType::REGISTER_SUCCESS);
@@ -70,12 +63,10 @@ void getLocation(int socketfd) {
         int index = entry.second;
         entry.second = (entry.second + 1) % size;
 
-        const auto& location_info = entry.first[index];
-        // TODO: Ping the server - if down, ignore
-        
+        const auto& location = entry.first[index];
         msg.setType(MessageType::LOC_SUCCESS);
-        msg.setServerIdentifier(location_info.location.c_str());
-        msg.setPort(location_info.port);
+        msg.setServerIdentifier(location.first.c_str());
+        msg.setPort(location.second);
         msg.sendMessage(socketfd);
         return;
     }
@@ -83,6 +74,30 @@ void getLocation(int socketfd) {
     msg.setType(MessageType::LOC_FAILURE);
     msg.setReasonCode(ERROR_MISSING_FUNCTION);
     msg.sendMessage(socketfd);
+}
+
+void cleanup(int socketfd, fd_set& master_set) {
+
+    close(socketfd);    
+    requests.erase(socketfd);
+    FD_CLR(socketfd, &master_set);
+
+    // Remove all entries associated with the server
+    if (servers.find(socketfd) != servers.end()) {
+        const auto& location = servers[socketfd];
+        const string hash = getHash(location);
+        for (const auto& signature : registered_functions[hash]) {
+            auto& list = database[signature].first;
+            auto& index = database[signature].second;
+            auto it = find(list.begin(), list.end(), location);
+            if (it != list.end()) {
+                list.erase(it);
+                index = index % list.size();
+            }
+        }
+        registered_functions.erase(hash);
+        servers.erase(socketfd);
+    }
 }
 
 int main() {
@@ -177,41 +192,38 @@ int main() {
                     // Peek to see if the heaer has arrived
                     int bytes = msg.peek(i);
                     if (bytes <= 0) {
-                        // TODO: Stuff    
+                        cleanup(i, master_set);
                     } else if (bytes < msg.HEADER_SIZE) {
                         continue;    
                     } else if (msg.recvHeader(i) < 0) {
-                        // TODO: Stuff    
+                        cleanup(i, master_set);
                     }
                 } else {
                     // Peek to see if the body has arrived
                     int bytes = msg.peek(i);
                     if (bytes <= 0) {
-                        // TODO: Stuff    
+                        cleanup(i, master_set);
                     } else if (bytes < msg.getLength()) {
                         continue;    
                     } else if (msg.recvMessage(i) < 0) {
-                        // TODO: Stuff    
+                        cleanup(i, master_set);
                     }
                     
                     bool terminate = false;
                     switch (msg.getType()) {
                         case MessageType::REGISTER:
                             registerFunction(i);
+                            requests.erase(i);
                             break;
                         case MessageType::LOC_REQUEST:
                             getLocation(i);
-                            FD_CLR(i, &master_set);
-                            close(i);
+                            cleanup(i, master_set);
                             break;
                         case MessageType::TERMINATE:
                         default:
                             terminate = true;
                             break;
                     }
-
-                    // TODO: Is there any other cleanup required?
-                    requests.erase(i);
 
                     if (terminate) {
                         break;
@@ -226,13 +238,13 @@ int main() {
 
     // Tell all servers to terminate
     for (const auto& server : servers) {
-        msg.sendMessage(server);
+        msg.sendMessage(server.first);
     }
 
     // Close all connections
     for (int i = 0; i <= maxfd; ++i) {
         if (FD_ISSET(i, &master_set)) {
-            close(i);
+            cleanup(i, master_set);
         }
     }
 

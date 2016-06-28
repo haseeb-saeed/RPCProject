@@ -34,7 +34,7 @@ static unordered_map<string, skeleton> functions;
 static unordered_map<int, Message> requests;
 static vector<thread> calls;
 static int host_port = 0;
-static char host_name[64];
+static char host_name[48];
 
 int rpcInit() {
 
