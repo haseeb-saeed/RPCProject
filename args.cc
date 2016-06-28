@@ -1,3 +1,4 @@
+#include <cstring>
 #include <string>
 
 #include "args.h"
@@ -93,11 +94,15 @@ string getSignature(const char* name, int* arg_types) {
 }
 
 void copyArgTypes(int* dest, int* src) {
-    // TODO: Copy arg types into dest
+    // +1 to copy the null terminator
+    memcpy(dest, src, (numArgs(src) + 1) * sizeof(*src));
 }
 
 void copyArgs(void** dest, void** src, int* arg_types) {
-    // TODO: Copy args into dest
+    for (int i = 0; i < numArgs(arg_types); ++i) {
+        int buffer_size = argSize(arg_types[i]);
+        memcpy(dest[i], src[i], buffer_size);    
+    }
 }
 
 }
