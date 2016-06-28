@@ -183,10 +183,11 @@ static void executeAsync(int client) {
     // the allocated memory
 }
 
-void cleanup(int socketfd) {
+void cleanup(int socketfd, fd_set& master_set) {
 
     close(socketfd);
     requests.erase(socketfd);
+    FD_CLR(socketfd, &master_set);
 }
 
 int rpcExecute() {
@@ -195,7 +196,7 @@ int rpcExecute() {
     FD_ZERO(&master_set);
     FD_SET(binder_socket, &master_set);
     FD_SET(client_socket, &master_set);
-    int max_socket = client_socket;
+    int max_socket = max(client_socket, binder_socket);
 
     if (listen(client_socket, 5) < 0) {
         return ERROR_SOCKET_LISTEN;
@@ -224,17 +225,17 @@ int rpcExecute() {
                     // if we don't have all 8 bytes
                     int bytes = msg.peek(i);
                     if (bytes <= 0) {
-                        cleanup(i);
+                        cleanup(i, master_set);
                     } else if (bytes < msg.HEADER_SIZE) {
                         continue;
                     } else if (msg.recvHeader(i) < 0) {
-                        cleanup(i);
+                        cleanup(i, master_set);
                     }
 
                     if (msg.getType() == MessageType::TERMINATE) {
                         // Autheticate termination request
                         if (i != binder_socket) {
-                            cleanup(i);
+                            cleanup(i, master_set);
                             continue;
                         }
 
@@ -249,11 +250,11 @@ int rpcExecute() {
                     // we don't have the full length
                     int bytes = msg.peek(i);
                     if (bytes <= 0) {
-                        cleanup(i);
+                        cleanup(i, master_set);
                     } else if (bytes < msg.getLength()) {
                         continue;
                     } else if (msg.recvMessage(i) < 0) {
-                        cleanup(i);
+                        cleanup(i, master_set);
                     }
 
                     FD_CLR(i, &master_set);
