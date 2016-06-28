@@ -181,8 +181,12 @@ static void executeAsync(int client) {
 
     // TODO: Since we're most likely done with info here, clean up
     // the allocated memory
-    requests.erase(client);
-    close(client);
+}
+
+void cleanup(int socketfd) {
+
+    close(socketfd);
+    requests.erase(socketfd);
 }
 
 int rpcExecute() {
@@ -220,11 +224,11 @@ int rpcExecute() {
                     // if we don't have all 8 bytes
                     int bytes = msg.peek(i);
                     if (bytes <= 0) {
-                        // TODO: Close connection
+                        cleanup(i);
                     } else if (bytes < msg.HEADER_SIZE) {
                         continue;
                     } else if (msg.recvHeader(i) < 0) {
-                        // TODO: Something
+                        cleanup(i);
                     }
 
                     if (msg.getType() == MessageType::TERMINATE) {
@@ -245,11 +249,11 @@ int rpcExecute() {
                     // we don't have the full length
                     int bytes = msg.peek(i);
                     if (bytes <= 0) {
-                        // TODO: Close connection
+                        cleanup(i);
                     } else if (bytes < msg.getLength()) {
                         continue;
                     } else if (msg.recvMessage(i) < 0) {
-                        // TODO: Something
+                        cleanup(i);
                     }
 
                     FD_CLR(i, &master_set);
