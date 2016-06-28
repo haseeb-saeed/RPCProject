@@ -10,12 +10,14 @@
 #include <netdb.h>
 #include <unistd.h>
 
+#include "args.h"
 #include "rpc.h"
 #include "codes.h"
 #include "message.h"
 using namespace std;
 using namespace message;
 using namespace codes;
+using namespace args;
 
 int connectToBinder() {
     // Get environment variables
@@ -168,9 +170,9 @@ int rpcCall(char* name, int* argTypes, void** args) {
         return executeMsg.getReasonCode();
     }
 
-    memcpy(&argTypes, executeMsg.getArgTypes(), executeMsg.numArgs()*sizeof(*argTypes));
-    // TODO: Fixme! Change to deep copy
-    memcpy(&args, executeMsg.getArgs(), executeMsg.numArgs()*sizeof(*args));
+    copyArgTypes(argTypes, executeMsg.getArgTypes());
+    copyArgs(args, executeMsg.getArgs(), executeMsg.getArgTypes());
+    
     close(binder_socket);
     close(server_socket);
     return 0;
