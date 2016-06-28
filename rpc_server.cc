@@ -234,7 +234,7 @@ int rpcExecute() {
                     if (msg.getType() == MessageType::TERMINATE) {
                         // Autheticate termination request
                         if (i != binder_socket) {
-                            requests.erase(i);
+                            cleanup(i);
                             continue;
                         }
 
