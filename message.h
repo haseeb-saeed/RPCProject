@@ -36,6 +36,8 @@ class Message {
 
 public:
     Message();                          // Default constructor
+    ~Message();                         // Destructor
+
     int recvHeader(const int& socket);  // Gets a message header from the given socket
     int recvMessage(const int& socket); // Gets a message body from the given socket
     int peek(const int& socket);        // Gets the number of bytes in the socket's buffer
@@ -80,6 +82,7 @@ private:
     int sendArgs(const int& socket);
 
     void recalculateLength();
+    void cleanup();
 };
 
 }

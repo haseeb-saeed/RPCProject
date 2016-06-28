@@ -16,6 +16,11 @@ Message::Message(): length(0), type(MessageType::NONE), port(0),
     HEADER_SIZE(sizeof(length) + sizeof(type)) {
 }
 
+Message::~Message() {
+    // Free any allocated memory
+    cleanup();
+}
+
 void Message::setType(const MessageType& type) {
     this->type = type;
     recalculateLength();
@@ -38,13 +43,23 @@ void Message::setReasonCode(const int& reason_code) {
 }
 
 void Message::setArgTypes(int* arg_types) {
+
     this->num_args = args::numArgs(arg_types);
-    this->arg_types = arg_types;    
+    this->arg_types = new int[this->num_args + 1];
+    copyArgTypes(this->arg_types, arg_types);
+
     recalculateLength();
 }
 
 void Message::setArgs(void** args) {
-    this->args = args;
+
+    this->args = new void*[num_args];
+    for (int i = 0; i < num_args; ++i) {
+        int buffer_size = argSize(arg_types[i]);
+        this->args[i] = new char[buffer_size];
+    }
+
+    copyArgs(this->args, args, arg_types);
 }
 
 MessageType Message::getType() const {
@@ -112,6 +127,9 @@ int Message::recvArgTypes(const int& socket) {
     if (status <= 0) {
         cerr << "recv num args error" << endl;    
     } else {
+        // Free any old memory before we proceed
+        cleanup();
+
         arg_types = new int[num_args + 1];    // +1 for null terminator
         args = new void*[num_args];
         status = recv(socket, arg_types, num_args * sizeof(*arg_types), MSG_WAITALL);
@@ -380,6 +398,21 @@ void Message::recalculateLength() {
             length = 0;
             break;
     }
+}
+
+void Message::cleanup() {
+
+    if (args != nullptr) {
+        for (int i = 0; i < num_args; ++i) {
+            delete [] (char*)(args[i]);
+        }
+    }
+
+    delete [] args;
+    delete [] arg_types;
+
+    args = nullptr;
+    arg_types = nullptr;
 }
 
 }
