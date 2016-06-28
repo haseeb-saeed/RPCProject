@@ -189,6 +189,7 @@ int rpcExecute() {
 
     fd_set master_set, read_set;
     FD_ZERO(&master_set);
+    FD_SET(binder_socket, &master_set);
     FD_SET(client_socket, &master_set);
     int max_socket = client_socket;
 
@@ -227,6 +228,12 @@ int rpcExecute() {
                     }
 
                     if (msg.getType() == MessageType::TERMINATE) {
+                        // Autheticate termination request
+                        if (i != binder_socket) {
+                            requests.erase(i);
+                            continue;
+                        }
+
                         // Wait for all threads to be done
                         for (auto& th : calls) {
                             th.join();    
