@@ -178,9 +178,6 @@ static void executeAsync(int client) {
     if (msg.sendMessage(client) < 0) {
         return;
     }
-
-    // TODO: Since we're most likely done with info here, clean up
-    // the allocated memory
 }
 
 void cleanup(int socketfd, fd_set& master_set) {
