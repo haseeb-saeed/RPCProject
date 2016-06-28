@@ -92,4 +92,12 @@ string getSignature(const char* name, int* arg_types) {
     return signature;
 }
 
+void copyArgTypes(int* dest, int* src) {
+    // TODO: Copy arg types into dest
+}
+
+void copyArgs(void** dest, void** src, int* arg_types) {
+    // TODO: Copy args into dest
+}
+
 }

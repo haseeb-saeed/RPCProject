@@ -22,6 +22,8 @@ int arrayLen(int arg_type);
 int numArgs(int* arg_types);
 int argSize(int arg_type);
 std::string getSignature(const char* name, int* arg_types);
+void copyArgTypes(int* dest, int* src);
+void copyArgs(void** dest, void** src, int* arg_types);
 
 }
 #endif // __ARGS_H__
