@@ -27,7 +27,7 @@ class Message {
     int length;                 // The length of the message
     MessageType type;           // The type of message
     char name[64];              // The name of the machine/function
-    char server_identifier[64]; // IP address or hostname
+    char server_identifier[48]; // IP address or hostname
     int port;                   // The port number
     int reason_code;            // The error code
     int num_args;               // The number of args
