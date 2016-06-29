@@ -100,7 +100,15 @@ int rpcInit() {
         client_socket = SOCK_INVALID;
         return ERROR_SOCKET_BIND;    
     }
-    
+   
+    if (listen(client_socket, 5) < 0) {
+        close(binder_socket);
+        close(client_socket);
+        binder_socket = SOCK_INVALID;
+        client_socket = SOCK_INVALID;
+        return ERROR_SOCKET_LISTEN;
+    }
+ 
     // Get the server name and port
     sockaddr_in server_addr;
     socklen_t len = sizeof(server_addr);
@@ -136,6 +144,10 @@ int rpcInit() {
 }
 
 int rpcRegister(char* name, int* argTypes, skeleton f) {
+
+    if (binder_socket == SOCK_INVALID) {
+        return ERROR_NOT_CONNECTED_BINDER;
+    }
 
     // Construct message
     Message msg;
@@ -196,16 +208,16 @@ void cleanup(int socketfd, fd_set& master_set) {
 }
 
 int rpcExecute() {
+    
+    if (client_socket == SOCK_INVALID) {
+        return ERROR_SERVER_NOT_RUNNING;
+    }    
 
     fd_set master_set, read_set;
     FD_ZERO(&master_set);
     FD_SET(binder_socket, &master_set);
     FD_SET(client_socket, &master_set);
     int max_socket = max(client_socket, binder_socket);
-
-    if (listen(client_socket, 5) < 0) {
-        return ERROR_SOCKET_LISTEN;
-    }
 
     for (;;) {
 

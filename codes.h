@@ -20,6 +20,8 @@ namespace codes {
         ERROR_MESSAGE_RECV = -12,
         ERROR_MISSING_FUNCTION = -13,
         ERROR_FUNCTION_CALL = -14,
+        ERROR_NOT_CONNECTED_BINDER = -15,
+        ERROR_SERVER_NOT_RUNNING = -16,
     };
 }
 
