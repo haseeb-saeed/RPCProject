@@ -38,6 +38,8 @@ public:
     Message();                          // Default constructor
     ~Message();                         // Destructor
 
+    Message(const Message& msg) = delete;
+    Message& operator=(const Message& msg) = delete;
     int recvHeader(const int& socket);  // Gets a message header from the given socket
     int recvMessage(const int& socket); // Gets a message body from the given socket
     int peek(const int& socket);        // Gets the number of bytes in the socket's buffer
