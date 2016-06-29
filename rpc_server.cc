@@ -145,16 +145,13 @@ int rpcRegister(char* name, int* argTypes, skeleton f) {
     msg.setArgTypes(argTypes);
 
     // Send message to binder
-    if (msg.sendMessage(binder_socket) < 0) {
+    try {
+        msg.sendMessage(binder_socket);
+        msg.recvHeader(binder_socket);
+        msg.recvMessage(binder_socket);
+    } catch(Message::SendError) {
         return ERROR_MESSAGE_SEND;
-    }
-
-    // Get binder's response
-    if (msg.recvHeader(binder_socket) < 0) {
-        return ERROR_MESSAGE_RECV;
-    }
-
-    if (msg.recvMessage(binder_socket) < 0) {
+    } catch(Message::RecvError) {
         return ERROR_MESSAGE_RECV;
     }
 
@@ -169,26 +166,24 @@ static void executeAsync(int client) {
     
     auto& msg = requests[client];
     string key = getSignature(msg.getName(), msg.getArgTypes());
-    if (functions[key] == nullptr) {
-        msg.setType(MessageType::EXECUTE_FAILURE);
-        msg.setReasonCode(ERROR_MISSING_FUNCTION);
-        if (msg.sendMessage(client) < 0) {
-            return;
-        }
-    }
 
-    int status = (functions[key])(msg.getArgTypes(), msg.getArgs());
-    if (status < 0) {
-        msg.setType(MessageType::EXECUTE_FAILURE);
-        msg.setReasonCode(ERROR_FUNCTION_CALL);
-        if (msg.sendMessage(client) < 0) {
-            return;
+    try {
+        if (functions[key] == nullptr) {
+            msg.setType(MessageType::EXECUTE_FAILURE);
+            msg.setReasonCode(ERROR_MISSING_FUNCTION);
+            msg.sendMessage(client);
         }
-    }
 
-    msg.setType(MessageType::EXECUTE_SUCCESS);
-    if (msg.sendMessage(client) < 0) {
-        return;
+        int status = (functions[key])(msg.getArgTypes(), msg.getArgs());
+        if (status < 0) {
+            msg.setType(MessageType::EXECUTE_FAILURE);
+            msg.setReasonCode(ERROR_FUNCTION_CALL);
+            msg.sendMessage(client);
+        }
+
+        msg.setType(MessageType::EXECUTE_SUCCESS);
+        msg.sendMessage(client);
+    } catch(Message::SendError) {
     }
 }
 
@@ -229,46 +224,42 @@ int rpcExecute() {
                 }
             } else {                
                 auto& msg = requests[i];
-                if (msg.getType() == MessageType::NONE) {
-                    // Peek at the header and continue
-                    // if we don't have all 8 bytes
-                    int bytes = msg.peek(i);
-                    if (bytes <= 0) {
-                        cleanup(i, master_set);
-                    } else if (bytes < msg.HEADER_SIZE) {
-                        continue;
-                    } else if (msg.recvHeader(i) < 0) {
-                        cleanup(i, master_set);
-                    }
+                try {
+                    if (msg.getType() == MessageType::NONE) {
+                        // Peek at the header and continue
+                        // if we don't have all 8 bytes
+                        if (msg.peek(i) < msg.HEADER_SIZE) {
+                            continue;
+                        }
+    
+                        msg.recvHeader(i);
+                        if (msg.getType() == MessageType::TERMINATE) {
+                            // Autheticate termination request
+                            if (i != binder_socket) {
+                                cleanup(i, master_set);
+                                continue;
+                            }
 
-                    if (msg.getType() == MessageType::TERMINATE) {
-                        // Autheticate termination request
-                        if (i != binder_socket) {
-                            cleanup(i, master_set);
+                            // Wait for all threads to be done
+                            for (auto& th : calls) {
+                                th.join();    
+                            }
+                            break;
+                        } 
+                    } else {
+                        // Peek at the body and continue if
+                        // we don't have the full length
+                        if (msg.peek(i) < msg.getLength()) {
                             continue;
                         }
 
-                        // Wait for all threads to be done
-                        for (auto& th : calls) {
-                            th.join();    
-                        }
-                        break;
-                    } 
-                } else {
-                    // Peek at the body and continue if
-                    // we don't have the full length
-                    int bytes = msg.peek(i);
-                    if (bytes <= 0) {
-                        cleanup(i, master_set);
-                    } else if (bytes < msg.getLength()) {
-                        continue;
-                    } else if (msg.recvMessage(i) < 0) {
-                        cleanup(i, master_set);
+                        msg.recvMessage(i);
+                        FD_CLR(i, &master_set);
+                        thread th(executeAsync, i);
+                        calls.push_back(move(th));
                     }
-
-                    FD_CLR(i, &master_set);
-                    thread th(executeAsync, i);
-                    calls.push_back(move(th));
+                } catch(...) {
+                    cleanup(i, master_set);
                 }
             }
         } 

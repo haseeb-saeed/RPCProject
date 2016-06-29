@@ -188,46 +188,43 @@ int main() {
                 }
             } else {
                 auto& msg = requests[i];
-                if (msg.getType() == MessageType::NONE) {
-                    // Peek to see if the heaer has arrived
-                    int bytes = msg.peek(i);
-                    if (bytes <= 0) {
-                        cleanup(i, master_set);
-                    } else if (bytes < msg.HEADER_SIZE) {
-                        continue;    
-                    } else if (msg.recvHeader(i) < 0) {
-                        cleanup(i, master_set);
-                    }
-                } else {
-                    // Peek to see if the body has arrived
-                    int bytes = msg.peek(i);
-                    if (bytes <= 0) {
-                        cleanup(i, master_set);
-                    } else if (bytes < msg.getLength()) {
-                        continue;    
-                    } else if (msg.recvMessage(i) < 0) {
-                        cleanup(i, master_set);
-                    }
-                    
-                    bool terminate = false;
-                    switch (msg.getType()) {
-                        case MessageType::REGISTER:
-                            registerFunction(i);
-                            requests.erase(i);
-                            break;
-                        case MessageType::LOC_REQUEST:
-                            getLocation(i);
-                            cleanup(i, master_set);
-                            break;
-                        case MessageType::TERMINATE:
-                        default:
-                            terminate = true;
-                            break;
-                    }
+                try {
+                    if (msg.getType() == MessageType::NONE) {
+                        // Peek to see if the heaer has arrived
+                        if (msg.peek(i) < msg.HEADER_SIZE) {
+                            continue;    
+                        }
+                        msg.recvHeader(i);
+                    } else {
+                        // Peek to see if the body has arrived
+                        if (msg.peek(i) < msg.getLength()) {
+                            continue;    
+                        }
 
-                    if (terminate) {
-                        break;
+                        msg.recvMessage(i);
+                        
+                        bool terminate = false;
+                        switch (msg.getType()) {
+                            case MessageType::REGISTER:
+                                registerFunction(i);
+                                requests.erase(i);
+                                break;
+                            case MessageType::LOC_REQUEST:
+                                getLocation(i);
+                                cleanup(i, master_set);
+                                break;
+                            case MessageType::TERMINATE:
+                            default:
+                                terminate = true;
+                                break;
+                        }
+
+                        if (terminate) {
+                            break;
+                        }
                     }
+                } catch(...) {
+                    cleanup(i, master_set);
                 }
             }
         }

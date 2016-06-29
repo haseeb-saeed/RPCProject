@@ -160,7 +160,12 @@ void receive(Message& msg, int socketfd, MessageType type) {
    
     int bytes = 0;
     while (bytes == 0) {
-        bytes = msg.peek(socketfd);
+        try {
+            bytes = msg.peek(socketfd);
+        } catch(Message::PeekError) {
+            cout << "lol peek error" << endl;
+            this_thread::sleep_for(chrono::milliseconds(50));
+        }
     }
     cout << "Peeked " << bytes << " bytes" << endl;
 

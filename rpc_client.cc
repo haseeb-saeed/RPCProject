@@ -88,17 +88,14 @@ int rpcCall(char* name, int* argTypes, void** args) {
     msg.setName(name);
     msg.setArgTypes(argTypes);
 
-    if (msg.sendMessage(binder_socket) < 0) {
+    try {
+        msg.sendMessage(binder_socket);
+        msg.recvHeader(binder_socket);
+        msg.recvMessage(binder_socket);
+    } catch (Message::SendError) {
         close(binder_socket);
         return ERROR_MESSAGE_SEND;
-    }
-
-    if (msg.recvHeader(binder_socket) < 0) {
-        close(binder_socket);
-        return ERROR_MESSAGE_RECV;
-    }
-
-    if (msg.recvMessage(binder_socket) <= 0) {
+    } catch (Message::RecvError) {
         close(binder_socket);
         return ERROR_MESSAGE_RECV;
     }
@@ -146,36 +143,29 @@ int rpcCall(char* name, int* argTypes, void** args) {
     executeMsg.setArgTypes(argTypes);
     executeMsg.setArgs(args);
 
-    if (executeMsg.sendMessage(server_socket) < 0) {
+    try {
+        executeMsg.sendMessage(server_socket);
+        executeMsg.recvHeader(server_socket);
+        executeMsg.recvMessage(server_socket);
+    } catch (Message::SendError) {
         close(binder_socket);
         close(server_socket);
         return ERROR_MESSAGE_SEND;
-    }
-
-    if (executeMsg.recvHeader(server_socket) <= 0) {
+    } catch (Message::RecvError) {
         close(binder_socket);
         close(server_socket);
         return ERROR_MESSAGE_RECV;
     }
 
-    if (executeMsg.recvMessage(server_socket) <= 0) {
-        close(binder_socket);
-        close(server_socket);
-        return ERROR_MESSAGE_RECV;
+    if (executeMsg.getType() == MessageType::EXECUTE_SUCCESS) {
+        copyArgTypes(argTypes, executeMsg.getArgTypes());
+        copyArgs(args, executeMsg.getArgs(), executeMsg.getArgTypes());
+        executeMsg.setReasonCode(0);
     }
 
-    if (executeMsg.getType() == MessageType::EXECUTE_FAILURE) {
-        close(binder_socket);
-        close(server_socket);
-        return executeMsg.getReasonCode();
-    }
-
-    copyArgTypes(argTypes, executeMsg.getArgTypes());
-    copyArgs(args, executeMsg.getArgs(), executeMsg.getArgTypes());
-    
     close(binder_socket);
     close(server_socket);
-    return 0;
+    return executeMsg.getReasonCode();
 }
 
 int rpcTerminate() {
@@ -187,7 +177,9 @@ int rpcTerminate() {
         return binder_socket;
     }
 
-    if (msg.sendMessage(binder_socket) < 0) {
+    try {
+        msg.sendMessage(binder_socket); 
+    } catch(Message::SendError) {
         close(binder_socket);
         return ERROR_MESSAGE_SEND;
     }

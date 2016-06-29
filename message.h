@@ -37,13 +37,17 @@ class Message {
 public:
     Message();                          // Default constructor
     ~Message();                         // Destructor
-
     Message(const Message& msg) = delete;
     Message& operator=(const Message& msg) = delete;
-    int recvHeader(const int& socket);  // Gets a message header from the given socket
-    int recvMessage(const int& socket); // Gets a message body from the given socket
-    int peek(const int& socket);        // Gets the number of bytes in the socket's buffer
-    int sendMessage(const int& socket); // Sends a message to the given socket
+
+    struct PeekError {};
+    struct SendError {};
+    struct RecvError {};
+
+    void recvHeader(const int& socket);  // Gets a message header from the given socket
+    void recvMessage(const int& socket); // Gets a message body from the given socket
+    int peek(const int& socket);         // Gets the number of bytes in the socket's buffer
+    void sendMessage(const int& socket); // Sends a message to the given socket
 
     void setType(const MessageType& type);
     void setName(const char* name);
@@ -67,21 +71,21 @@ public:
     const int HEADER_SIZE;
 
 private:
-    int recvName(const int& socket);
-    int recvServerIdentifier(const int& socket);
-    int recvPort(const int& socket);
-    int recvReasonCode(const int& socket);
-    int recvArgTypes(const int& socket);
-    int recvArgs(const int& socket);
+    void recvName(const int& socket);
+    void recvServerIdentifier(const int& socket);
+    void recvPort(const int& socket);
+    void recvReasonCode(const int& socket);
+    void recvArgTypes(const int& socket);
+    void recvArgs(const int& socket);
 
-    int sendBytes(const int& socket, const void* buffer, const int& buffer_size);
-    int sendHeader(const int& socket);
-    int sendName(const int& socket);
-    int sendServerIdentifier(const int& socket);
-    int sendPort(const int& socket);
-    int sendReasonCode(const int& socket);
-    int sendArgTypes(const int& socket);
-    int sendArgs(const int& socket);
+    void sendBytes(const int& socket, const void* buffer, const int& buffer_size);
+    void sendHeader(const int& socket);
+    void sendName(const int& socket);
+    void sendServerIdentifier(const int& socket);
+    void sendPort(const int& socket);
+    void sendReasonCode(const int& socket);
+    void sendArgTypes(const int& socket);
+    void sendArgs(const int& socket);
 
     void recalculateLength();
     void cleanup();
