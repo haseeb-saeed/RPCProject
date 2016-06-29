@@ -20,60 +20,85 @@ using namespace codes;
 using namespace std;
 using namespace message;
 
-typedef pair<string, int> Location;
-unordered_map<string, pair<vector<Location>, int>> database;
-unordered_map<string, unordered_set<string>> registered_functions;
-unordered_map<int, Location> servers;
-unordered_map<int, Message> requests;
-
-string getHash(const Location& location) {
+struct Entry {
+    string name;
+    int port;
+    unordered_set<string> functions;
     
-    return location.first + to_string(location.second);
+    Entry(const pair<string, int>& location):
+        name(location.first), port(location.second) {
+    }
+
+    friend bool operator== (const Entry&, const Entry&);
+};
+
+bool operator== (const Entry& e1, const Entry& e2) {
+    return e1.name == e2.name && e1.port == e2.port;
 }
+
+vector<Entry> database;
+int database_index = 0;
+unordered_map<int, pair<string, int>> servers;
+unordered_map<int, Message> requests;
 
 void registerFunction(int socketfd) {
 
     auto& msg = requests[socketfd];
-    Location location(msg.getServerIdentifier(), msg.getPort());
-    servers[socketfd] = location;
-
-    const string key = getSignature(msg.getName(), msg.getArgTypes());
-    auto& functions = registered_functions[getHash(location)];
-    if (functions.find(key) != functions.end()) {
-        msg.setReasonCode(WARNING_DUPLICATE_FUNCTION);
+    const string signature = getSignature(msg.getName(), msg.getArgTypes());
+    auto location = make_pair(msg.getServerIdentifier(), msg.getPort());
+    Entry entry(location);
+    servers[socketfd] = location; 
+    
+    auto it = find(database.begin(), database.end(), entry);
+    if (it != database.end()) {
+        auto& functions = it->functions;
+        if (functions.find(signature) == functions.end()) {
+            functions.insert(signature);
+            msg.setReasonCode(0);
+        } else {
+            msg.setReasonCode(WARNING_DUPLICATE_FUNCTION);
+        }
     } else {
-        auto& list = database[key].first;
-        list.push_back(location);
-        functions.insert(key);
+        entry.functions.insert(signature);
+        database.push_back(entry);
         msg.setReasonCode(0);
     }
 
-    msg.setType(MessageType::REGISTER_SUCCESS);
-    msg.sendMessage(socketfd);
+    try {
+        msg.setType(MessageType::REGISTER_SUCCESS);
+        msg.sendMessage(socketfd);
+    } catch(...) {
+    }
 }
 
 void getLocation(int socketfd) {
 
     auto& msg = requests[socketfd];
-    const string key = getSignature(msg.getName(), msg.getArgTypes());
-    auto& entry = database[key];
-    const int size = entry.first.size();
-    
-    for (int i = 0; i < size; ++i) {
-        int index = entry.second;
-        entry.second = (entry.second + 1) % size;
+    const string signature = getSignature(msg.getName(), msg.getArgTypes());
+    const int size = database.size();
+    int i;
 
-        const auto& location = entry.first[index];
-        msg.setType(MessageType::LOC_SUCCESS);
-        msg.setServerIdentifier(location.first.c_str());
-        msg.setPort(location.second);
-        msg.sendMessage(socketfd);
-        return;
+    for (i = 0; i < size; ++i) {
+        const auto& entry = database[database_index++];
+        database_index %= size;
+
+        if (entry.functions.find(signature) != entry.functions.end()) {
+            msg.setType(MessageType::LOC_SUCCESS);
+            msg.setServerIdentifier(entry.name.c_str());
+            msg.setPort(entry.port);
+            break;
+        }
     }
 
-    msg.setType(MessageType::LOC_FAILURE);
-    msg.setReasonCode(ERROR_MISSING_FUNCTION);
-    msg.sendMessage(socketfd);
+    if (i == size) {
+        msg.setType(MessageType::LOC_FAILURE);
+        msg.setReasonCode(ERROR_MISSING_FUNCTION);
+    }
+
+    try {
+        msg.sendMessage(socketfd);
+    } catch(...) {
+    }
 }
 
 void cleanup(int socketfd, fd_set& master_set) {
@@ -85,17 +110,14 @@ void cleanup(int socketfd, fd_set& master_set) {
     // Remove all entries associated with the server
     if (servers.find(socketfd) != servers.end()) {
         const auto& location = servers[socketfd];
-        const string hash = getHash(location);
-        for (const auto& signature : registered_functions[hash]) {
-            auto& list = database[signature].first;
-            auto& index = database[signature].second;
-            auto it = find(list.begin(), list.end(), location);
-            if (it != list.end()) {
-                list.erase(it);
-                index = index % list.size();
-            }
+        const Entry entry(location);
+        auto it = find(database.begin(), database.end(), entry);
+
+        if (it != database.end()) {
+            database.erase(it);
+            database_index %= database.size();
         }
-        registered_functions.erase(hash);
+
         servers.erase(socketfd);
     }
 }
