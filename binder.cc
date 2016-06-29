@@ -227,6 +227,12 @@ int main() {
                             continue;    
                         }
                         msg.recvHeader(i);
+
+                        if (msg.getType() == MessageType::TERMINATE) {
+                            cout << "TERMINATE" << endl;
+                            terminate = true;
+                            break;
+                        }
                     } else {
                         // Peek to see if the body has arrived
                         if (msg.peek(i) < msg.getLength()) {
@@ -246,15 +252,8 @@ int main() {
                                 getLocation(i);
                                 cleanup(i, master_set);
                                 break;
-                            case MessageType::TERMINATE:
                             default:
-                                cout << "TERMINATE" << endl;
-                                terminate = true;
                                 break;
-                        }
-
-                        if (terminate) {
-                            break;
                         }
                     }
                 } catch(...) {
