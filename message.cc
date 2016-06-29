@@ -131,14 +131,10 @@ int Message::recvArgTypes(const int& socket) {
         cleanup();
 
         arg_types = new int[num_args + 1];    // +1 for null terminator
-        args = new void*[num_args];
         status = recv(socket, arg_types, num_args * sizeof(*arg_types), MSG_WAITALL);
         if (status <= 0) {
             delete [] arg_types;
-            delete [] args;
-            
             arg_types = nullptr;
-            args = nullptr;
             cerr << "recv arg types error" << endl;        
         } else {
             arg_types[num_args] = 0;    
@@ -150,6 +146,7 @@ int Message::recvArgTypes(const int& socket) {
 
 int Message::recvArgs(const int& socket) {
 
+    args = new void*[num_args];
     for (int i = 0; i < num_args; ++i) {
         int buffer_size = argSize(arg_types[i]);
         void* buffer = (void*) new char[buffer_size];

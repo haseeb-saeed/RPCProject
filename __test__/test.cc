@@ -134,18 +134,19 @@ void cleanupArgs(int* arg_types, void** args) {
 
     int num_args = numArgs(arg_types);
     for (int i = 0; i < num_args; ++i) {
+        cout << arrayLen(arg_types[i]) << endl;;
         if (arrayLen(arg_types[i]) == 0) {
-            delete args[i];
+            delete (char*)(args[i]);
         } else {
-            delete [] args[i];
+            delete [] (char*)(args[i]);
         }
     }
 
-    delete args;
+    delete [] args;
 }
 
 void cleanupArgTypes(int* arg_types) {
-    delete arg_types;
+    delete [] arg_types;
 }
 
 void send(Message& msg, int socketfd) {
@@ -213,7 +214,6 @@ void testRegisterClient(int socketfd) {
         cout << arg_types[i] << " ";
     }
     cout << endl;
-    cleanupArgTypes(arg_types);
 
     // Send reply
     msg.setType(MessageType::REGISTER_SUCCESS);
@@ -246,8 +246,6 @@ void testExecuteClient(int socketfd) {
     receive(msg, socketfd, MessageType::EXECUTE);
 
     printArgs(msg.getArgTypes(), msg.getArgs());
-    cleanupArgs(msg.getArgTypes(), msg.getArgs());
-    cleanupArgTypes(msg.getArgTypes());
 
     msg.setType(MessageType::EXECUTE_FAILURE);
     msg.setReasonCode(-1);
