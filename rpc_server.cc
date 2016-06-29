@@ -65,6 +65,7 @@ int rpcInit() {
     freeaddrinfo(addr);
     if (status < 0) {
         close(binder_socket);
+        binder_socket = SOCK_INVALID;
         return ERROR_SOCKET_CONNECT;
     }
 
@@ -72,6 +73,7 @@ int rpcInit() {
     client_socket = socket(PF_INET, SOCK_STREAM, 0);
     if (client_socket == SOCK_INVALID) {
         close(binder_socket);
+        binder_socket = SOCK_INVALID;
         return ERROR_SOCKET_CREATE;    
     }
 
@@ -83,6 +85,8 @@ int rpcInit() {
     if (getaddrinfo(nullptr, "0", &hints, &addr) != 0) {
         close(binder_socket);
         close(client_socket);
+        binder_socket = SOCK_INVALID;
+        client_socket = SOCK_INVALID;
         return ERROR_ADDRINFO;
     }
 
@@ -91,6 +95,8 @@ int rpcInit() {
     if (status < 0) {
         close(binder_socket);
         close(client_socket);
+        binder_socket = SOCK_INVALID;
+        client_socket = SOCK_INVALID;
         return ERROR_SOCKET_BIND;    
     }
     
@@ -100,12 +106,16 @@ int rpcInit() {
     if (getsockname(client_socket, (sockaddr*)&server_addr, &len) < 0) {
         close(binder_socket);
         close(client_socket);
+        binder_socket = SOCK_INVALID;
+        client_socket = SOCK_INVALID;
         return ERROR_SOCKET_NAME;
     }
 
     if (gethostname(host_name, sizeof(host_name)) < 0) {
         close(binder_socket);
         close(client_socket);
+        binder_socket = SOCK_INVALID;
+        client_socket = SOCK_INVALID;
         return ERROR_HOSTNAME;
     }
 
@@ -113,6 +123,8 @@ int rpcInit() {
     if (host == nullptr) {
         close(binder_socket);
         close(client_socket);
+        binder_socket = SOCK_INVALID;
+        client_socket = SOCK_INVALID;
         return ERROR_HOSTNAME;
     }
 
