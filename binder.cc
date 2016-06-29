@@ -260,8 +260,6 @@ int main() {
                 } catch(...) {
                     cout << "Caught some random-ass exception" << endl;
                     cleanup(i, master_set);
-                    terminate = true;
-                    break;
                 }
             }
         }
