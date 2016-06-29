@@ -53,12 +53,15 @@ void registerFunction(int socketfd) {
     if (it != database.end()) {
         auto& functions = it->functions;
         if (functions.find(signature) == functions.end()) {
+            cout << "Adding signature to existing slot" << endl;
             functions.insert(signature);
             msg.setReasonCode(0);
         } else {
+            cout << "Signature already exits" << endl;
             msg.setReasonCode(WARNING_DUPLICATE_FUNCTION);
         }
     } else {
+        cout << "Adding signature to new slot" << endl;
         entry.functions.insert(signature);
         database.push_back(entry);
         msg.setReasonCode(0);
@@ -115,7 +118,12 @@ void cleanup(int socketfd, fd_set& master_set) {
 
         if (it != database.end()) {
             database.erase(it);
-            database_index %= database.size();
+            cout << "I see a putty cat" << endl;
+            if (database.size() > 0) {
+                database_index %= database.size();
+            } else {
+                database_index = 0;    
+            }
         }
 
         servers.erase(socketfd);
@@ -193,6 +201,8 @@ int main() {
     int maxfd = socketfd;
 
     for(;;) {
+
+        bool terminate = false;
         read_set = master_set;
         select(maxfd + 1, &read_set, nullptr, nullptr, nullptr);
 
@@ -225,18 +235,20 @@ int main() {
 
                         msg.recvMessage(i);
                         
-                        bool terminate = false;
                         switch (msg.getType()) {
                             case MessageType::REGISTER:
+                                cout << "REGISTER" << endl;
                                 registerFunction(i);
                                 requests.erase(i);
                                 break;
                             case MessageType::LOC_REQUEST:
+                                cout << "LOC_REQUEST" << endl;
                                 getLocation(i);
                                 cleanup(i, master_set);
                                 break;
                             case MessageType::TERMINATE:
                             default:
+                                cout << "TERMINATE" << endl;
                                 terminate = true;
                                 break;
                         }
@@ -246,9 +258,16 @@ int main() {
                         }
                     }
                 } catch(...) {
+                    cout << "Caught some random-ass exception" << endl;
                     cleanup(i, master_set);
+                    terminate = true;
+                    break;
                 }
             }
+        }
+
+        if (terminate) {
+            break;    
         }
     }
 

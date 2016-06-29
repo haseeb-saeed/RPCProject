@@ -9,6 +9,7 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include <iostream>
 
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -207,6 +208,8 @@ int rpcExecute() {
     }
 
     for (;;) {
+
+        bool terminate = false;
         read_set = master_set;
         select(max_socket + 1, &read_set, nullptr, nullptr, nullptr);    
         
@@ -240,10 +243,13 @@ int rpcExecute() {
                                 continue;
                             }
 
+                            cout << "YALL CALLED TERMINATE" << endl;
+
                             // Wait for all threads to be done
                             for (auto& th : calls) {
                                 th.join();    
                             }
+                            terminate = true;
                             break;
                         } 
                     } else {
@@ -262,7 +268,11 @@ int rpcExecute() {
                     cleanup(i, master_set);
                 }
             }
-        } 
+        }
+
+        if (terminate) {
+            break;    
+        }
     }
    
     close(binder_socket);
