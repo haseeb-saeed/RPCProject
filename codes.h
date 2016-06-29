@@ -22,6 +22,7 @@ namespace codes {
         ERROR_FUNCTION_CALL = -14,
         ERROR_NOT_CONNECTED_BINDER = -15,
         ERROR_SERVER_NOT_RUNNING = -16,
+        ERROR_LOST_CONNECTION_BINDER = -17,
     };
 }
 

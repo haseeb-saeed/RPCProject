@@ -211,13 +211,14 @@ int rpcExecute() {
     
     if (client_socket == SOCK_INVALID) {
         return ERROR_SERVER_NOT_RUNNING;
-    }    
+    }
 
     fd_set master_set, read_set;
     FD_ZERO(&master_set);
     FD_SET(binder_socket, &master_set);
     FD_SET(client_socket, &master_set);
     int max_socket = max(client_socket, binder_socket);
+    int ret = 0;
 
     for (;;) {
 
@@ -256,11 +257,6 @@ int rpcExecute() {
                             }
 
                             cout << "YALL CALLED TERMINATE" << endl;
-
-                            // Wait for all threads to be done
-                            for (auto& th : calls) {
-                                th.join();    
-                            }
                             terminate = true;
                             break;
                         } 
@@ -280,6 +276,7 @@ int rpcExecute() {
                     cleanup(i, master_set);
                     if (i == binder_socket) {
                         terminate = true;
+                        ret = ERROR_LOST_CONNECTION_BINDER;
                         break;    
                     }
                 }
@@ -290,8 +287,18 @@ int rpcExecute() {
             break;    
         }
     }
-   
-    close(binder_socket);
-    close(client_socket);
-    return 0;
+  
+    // Wait for all threads to finish
+    for (auto& th : calls) {
+        th.join();    
+    }
+ 
+    // Close all connections
+    for (int i = 0; i <= max_socket; ++i) {
+        if (FD_ISSET(i, &master_set)) {
+            cleanup(i, master_set);
+        }
+    }
+
+    return ret;
 }
