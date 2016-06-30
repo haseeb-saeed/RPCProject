@@ -224,7 +224,10 @@ int rpcExecute() {
 
         bool terminate = false;
         read_set = master_set;
-        select(max_socket + 1, &read_set, nullptr, nullptr, nullptr);    
+        if (select(max_socket + 1, &read_set, nullptr, nullptr, nullptr) < 0) {
+            ret = ERROR_SOCKET_SELECT;
+            break;
+        }
 
         for (int i = 0; i <= max_socket; ++i) {
             if (!FD_ISSET(i, &read_set)) {
