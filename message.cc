@@ -11,8 +11,9 @@ using namespace std;
 
 namespace message {
 
-Message::Message(): length(0), type(MessageType::NONE), port(0),
-    reason_code(0), num_args(0), arg_types(nullptr), args(nullptr),
+Message::Message(): length(0), type(MessageType::NONE), name{0},
+    server_identifier{0}, port(0), reason_code(0), num_args(0),
+    arg_types(nullptr), args(nullptr),
     HEADER_SIZE(sizeof(length) + sizeof(type)) {
 }
 
@@ -27,11 +28,13 @@ void Message::setType(const MessageType& type) {
 }
 
 void Message::setName(const char* name) {
-    memcpy(this->name, name, sizeof(this->name));
+    const int len = min(sizeof(this->name), strlen(name) + 1);
+    memcpy(this->name, name, len);
 }
 
 void Message::setServerIdentifier(const char* identifier) {
-    memcpy(this->server_identifier, identifier, sizeof(this->server_identifier));
+    const int len = min(sizeof(this->server_identifier), strlen(identifier) + 1);
+    memcpy(this->server_identifier, identifier, len);
 }
 
 void Message::setPort(const int& port) {
