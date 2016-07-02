@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <cstring>
+#include "rpc.h"
 #include <sys/socket.h>
 #include <netdb.h>
 #include <sys/unistd.h>
@@ -96,6 +97,49 @@ void getLocation(int socketfd) {
     if (i == size) {
         msg.setType(MessageType::LOC_FAILURE);
         msg.setReasonCode(ERROR_MISSING_FUNCTION);
+    }
+
+    try {
+        msg.sendMessage(socketfd);
+    } catch(...) {
+    }
+}
+
+void getAllLocations(int socketfd) {
+
+    auto& msg = requests[socketfd];
+    const string signature = getSignature(msg.getName(), msg.getArgTypes());
+    vector<pair<string, int>> locations;
+
+    for (auto& entry : database) {
+        cout << entry.name << " " << entry.port << endl;
+        if (entry.functions.find(signature) != entry.functions.end()) {
+            locations.push_back(make_pair(entry.name, entry.port));
+            cout << "match" << entry.name << " " << entry.port << endl;
+        }
+    }
+
+    int num_args = locations.size() * 2;
+    if (num_args == 0) {
+        msg.setType(MessageType::LOC_FAILURE);
+        msg.setReasonCode(ERROR_MISSING_FUNCTION);
+    } else {
+
+        unique_ptr<int[]> arg_types(new int[num_args + 1]);
+        unique_ptr<void*[]> args(new void*[num_args]);
+
+        for (int i = 0; i < num_args; i += 2) {
+            const auto& str = locations[i].first;
+            arg_types[i] = (ARG_CHAR << 16) | (str.length() + 1);
+            arg_types[i + 1] = (ARG_INT << 16);
+            args[i] = (void*)str.c_str();
+            args[i + 1] = &(locations[i].second);
+        }
+        arg_types[num_args] = 0;
+
+        msg.setType(MessageType::LOC_CACHE_SUCCESS);
+        msg.setArgTypes(arg_types.get());
+        msg.setArgs(args.get());
     }
 
     try {
@@ -250,6 +294,11 @@ int main() {
                             case MessageType::LOC_REQUEST:
                                 cout << "LOC_REQUEST" << endl;
                                 getLocation(i);
+                                cleanup(i, master_set);
+                                break;
+                            case MessageType::LOC_CACHE:
+                                cout << "LOC_CACHE" << endl;
+                                getAllLocations(i);
                                 cleanup(i, master_set);
                                 break;
                             default:

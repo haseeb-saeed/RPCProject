@@ -225,6 +225,14 @@ void Message::recvMessage(const int& socket) {
         case EXECUTE_FAILURE:
             this->recvReasonCode(socket);
             break;
+        case LOC_CACHE:
+            this->recvName(socket);
+            this->recvArgTypes(socket);
+            break;
+        case LOC_CACHE_SUCCESS:
+            this->recvArgTypes(socket);
+            this->recvArgs(socket);
+            break;
         case TERMINATE:
         case NONE:
         default:
@@ -327,6 +335,14 @@ void Message::sendMessage(const int& socket) {
         case EXECUTE_FAILURE:
             this->sendReasonCode(socket);
             break;
+        case LOC_CACHE:
+            this->sendName(socket);
+            this->sendArgTypes(socket);
+            break;
+        case LOC_CACHE_SUCCESS:
+            this->sendArgTypes(socket);
+            this->sendArgs(socket);
+            break;
         case TERMINATE:
         case NONE:
         default:
@@ -347,6 +363,7 @@ void Message::recalculateLength() {
             length = sizeof(reason_code);
             break;
         case LOC_REQUEST:
+        case LOC_CACHE:
             length = sizeof(name) + sizeof(num_args)
                 + sizeof(*arg_types) * num_args;
             break;
@@ -363,6 +380,15 @@ void Message::recalculateLength() {
                 length += argSize(arg_types[i]);
             }
 
+            break;
+        case LOC_CACHE_SUCCESS:
+            length = sizeof(num_args) + sizeof(*arg_types) * num_args;
+
+            // Add total arg size to length
+            for (int i = 0; i < num_args; ++i) {
+                length += argSize(arg_types[i]);
+            }
+    
             break;
         case TERMINATE:
         case NONE:

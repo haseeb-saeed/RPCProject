@@ -9,6 +9,8 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <unordered_map>
+#include <vector>
 
 #include "args.h"
 #include "rpc.h"
@@ -18,6 +20,9 @@ using namespace std;
 using namespace message;
 using namespace codes;
 using namespace args;
+
+typedef pair<string, int> Location;
+unordered_map<string, vector<Location>> cache;
 
 int connectToBinder() {
     // Get environment variables
@@ -49,17 +54,83 @@ int connectToBinder() {
 
     // Connect to binder socket
     status = connect(binder_socket, host_info_list->ai_addr, host_info_list->ai_addrlen);
+    freeaddrinfo(host_info_list);
     if (status == -1) {
         close(binder_socket);
         return ERROR_SOCKET_CONNECT;
     }
 
-    freeaddrinfo(host_info_list);
-
     return binder_socket;
 }
 
-// Called by client
+int connectToServer(const char* host_name, const char* port) {
+    int status;
+    addrinfo host_info, *host_info_list;
+    memset(&host_info, 0, sizeof host_info);
+
+    host_info.ai_family = AF_UNSPEC;
+    host_info.ai_socktype = SOCK_STREAM;
+
+    // Getaddrinfo for server
+    status = getaddrinfo(host_name, port, &host_info, &host_info_list);
+    if (status != 0) {
+        return ERROR_ADDRINFO;
+    }
+
+    // Create server socket
+    int server_socket;
+    server_socket = socket(host_info_list->ai_family, host_info_list->ai_socktype, host_info_list->ai_protocol);
+    if (server_socket == -1) {
+        return ERROR_SOCKET_CREATE;
+    }
+
+    // Connect to server socket
+    status = connect(server_socket, host_info_list->ai_addr, host_info_list->ai_addrlen);
+    freeaddrinfo(host_info_list);
+    if (status == -1) {
+        close(server_socket);
+        return ERROR_SOCKET_CONNECT;
+    }
+
+    return server_socket;
+}
+
+int callServer(const char* identifier, const char* port, const char* name,
+    int* argTypes, void** args) {
+
+    int server_socket = connectToServer(identifier, port);
+    if (server_socket < 0) {
+        return server_socket;
+    }
+
+    Message executeMsg;
+    executeMsg.setType(MessageType::EXECUTE);
+    executeMsg.setName(name);
+    executeMsg.setArgTypes(argTypes);
+    executeMsg.setArgs(args);
+
+    try {
+        executeMsg.sendMessage(server_socket);
+        executeMsg.recvHeader(server_socket);
+        executeMsg.recvMessage(server_socket);
+    } catch (Message::SendError) {
+        close(server_socket);
+        return ERROR_MESSAGE_SEND;
+    } catch (Message::RecvError) {
+        close(server_socket);
+        return ERROR_MESSAGE_RECV;
+    }
+
+    if (executeMsg.getType() == MessageType::EXECUTE_SUCCESS) {
+        copyArgTypes(argTypes, executeMsg.getArgTypes());
+        copyArgs(args, executeMsg.getArgs(), executeMsg.getArgTypes());
+        executeMsg.setReasonCode(0);
+    }
+
+    close(server_socket);
+    return executeMsg.getReasonCode();
+}
+
 int rpcCall(char* name, int* argTypes, void** args) {
    
     // Maybe it would be better to only connect to the
@@ -105,67 +176,71 @@ int rpcCall(char* name, int* argTypes, void** args) {
         return msg.getReasonCode();
     }
 
-    int status;
-    addrinfo host_info, *host_info_list;
-    memset(&host_info, 0, sizeof host_info);
+    close(binder_socket);
+    return callServer(msg.getServerIdentifier(),
+        to_string(msg.getPort()).c_str(), name, argTypes, args);
+}
 
-    host_info.ai_family = AF_UNSPEC;
-    host_info.ai_socktype = SOCK_STREAM;
+int rpcCacheCall(char* name, int* argTypes, void** args) {
 
-    // Getaddrinfo for server
-    status = getaddrinfo(msg.getServerIdentifier(), to_string(msg.getPort()).c_str(), &host_info, &host_info_list);
-    if (status != 0) {
-        close(binder_socket);
-        return ERROR_ADDRINFO;
+    const string key = getSignature(name, argTypes);
+    auto& list = cache[key];
+
+    cout << "Already cached" << endl;
+    for (const auto& location : list) {
+        cout << location.first << " " << location.second << endl;
+        if (callServer(location.first.c_str(), to_string(location.second).c_str(),
+            name, argTypes, args) == 0) {
+            return 0;
+        }
     }
 
-    // Create server socket
-    int server_socket;
-    server_socket = socket(host_info_list->ai_family, host_info_list->ai_socktype, host_info_list->ai_protocol);
-    if (server_socket == -1) {
-        close(binder_socket);
-        return ERROR_SOCKET_CREATE;
+    cout << "Contacting binder" << endl;
+    int binder_socket = connectToBinder();
+    if (binder_socket < 0) {
+        return binder_socket;
     }
 
-    // Connect to server socket
-    status = connect(server_socket, host_info_list->ai_addr, host_info_list->ai_addrlen);
-    if (status == -1) {
-        close(binder_socket);
-        close(server_socket);
-        return ERROR_SOCKET_CONNECT;
-    }
-
-    freeaddrinfo(host_info_list);
-
-    Message executeMsg;
-    executeMsg.setType(MessageType::EXECUTE);
-    executeMsg.setName(name);
-    executeMsg.setArgTypes(argTypes);
-    executeMsg.setArgs(args);
+    Message msg;
+    msg.setType(MessageType::LOC_CACHE);
+    msg.setName(name);
+    msg.setArgTypes(argTypes);
 
     try {
-        executeMsg.sendMessage(server_socket);
-        executeMsg.recvHeader(server_socket);
-        executeMsg.recvMessage(server_socket);
-    } catch (Message::SendError) {
+        msg.sendMessage(binder_socket);
+        msg.recvHeader(binder_socket);
+        msg.recvMessage(binder_socket);
+    } catch(Message::SendError) {
         close(binder_socket);
-        close(server_socket);
         return ERROR_MESSAGE_SEND;
-    } catch (Message::RecvError) {
+    } catch(Message::RecvError) {
         close(binder_socket);
-        close(server_socket);
         return ERROR_MESSAGE_RECV;
     }
 
-    if (executeMsg.getType() == MessageType::EXECUTE_SUCCESS) {
-        copyArgTypes(argTypes, executeMsg.getArgTypes());
-        copyArgs(args, executeMsg.getArgs(), executeMsg.getArgTypes());
-        executeMsg.setReasonCode(0);
+    close(binder_socket);
+    if (msg.getType() == MessageType::LOC_FAILURE) {
+        return msg.getReasonCode();
     }
 
-    close(binder_socket);
-    close(server_socket);
-    return executeMsg.getReasonCode();
+    list.clear();
+    cout << "Parsing response" << endl;
+    auto msg_args = msg.getArgs();
+    for (int i = 0; i < msg.numArgs(); i += 2) {
+        list.push_back(make_pair((char*)msg_args[i], *(int*)(msg_args[i + 1])));
+        cout << list[i].first << " " << list[i].second;
+    }
+    
+    cout << "New cached" << endl;
+    for (const auto& location : list) {
+        cout << location.first << " " << location.second << endl;
+        if (callServer(location.first.c_str(), to_string(location.second).c_str(),
+            name, argTypes, args) == 0) {
+            return 0;
+        }
+    }
+
+    return ERROR_MISSING_FUNCTION;
 }
 
 int rpcTerminate() {
