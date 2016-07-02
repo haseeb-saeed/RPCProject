@@ -26,15 +26,25 @@ enum MessageType {
 
 // Message
 class Message {
-    int length;                 // The length of the message
-    MessageType type;           // The type of message
-    char name[64];              // The name of the machine/function
-    char server_identifier[48]; // IP address or hostname
-    int port;                   // The port number
-    int reason_code;            // The error code
-    int num_args;               // The number of args
-    int* arg_types;             // The types of args
-    void** args;                // The function arguments
+    int length;                         // The length of the message
+    MessageType type;                   // The type of message
+    char name[64];                      // The name of the machine/function
+    char server_identifier[48];         // IP address or hostname
+    int port;                           // The port number
+    int reason_code;                    // The error code
+    int num_args;                       // The number of args
+    int* arg_types;                     // The types of args
+    void** args;                        // The function arguments
+    std::unique_ptr<char[]> raw_bytes;  // Raw message data
+    int raw_index;                      // Index into raw message data
+    int total_bytes;                    // Total number of bytes received
+    char flags;                         // Message flags
+    const int HEADER_SIZE;              // The size of the message header
+
+    enum {
+        END_OF_HEADER = 0x1,
+        END_OF_MESSAGE = 0x10,
+    };
 
 public:
     Message();                          // Default constructor
@@ -46,10 +56,9 @@ public:
     struct SendError {};
     struct RecvError {};
 
-    void recvHeader(const int& socket);  // Gets a message header from the given socket
-    void recvMessage(const int& socket); // Gets a message body from the given socket
-    int peek(const int& socket);         // Gets the number of bytes in the socket's buffer
-    void sendMessage(const int& socket); // Sends a message to the given socket
+    void sendMessage(const int& socket);
+    void recvBlock(const int& socket);
+    void recvNonBlock(const int& socket);
 
     void setType(const MessageType& type);
     void setName(const char* name);
@@ -69,16 +78,19 @@ public:
 
     int getLength() const;
     int numArgs() const;
+    bool eom() const;
 
-    const int HEADER_SIZE;
 
 private:
-    void recvName(const int& socket);
-    void recvServerIdentifier(const int& socket);
-    void recvPort(const int& socket);
-    void recvReasonCode(const int& socket);
-    void recvArgTypes(const int& socket);
-    void recvArgs(const int& socket);
+    void recvBytes(const int& socket, const int& max_bytes);
+    void recvHeader();
+    void recvMessage();
+    void recvName();
+    void recvServerIdentifier();
+    void recvPort();
+    void recvReasonCode();
+    void recvArgTypes();
+    void recvArgs();
 
     void sendBytes(const int& socket, const void* buffer, const int& buffer_size);
     void sendHeader(const int& socket);
@@ -91,6 +103,7 @@ private:
 
     void recalculateLength();
     void cleanup();
+    void parse(void* dst, const int& buffer_size);
 };
 
 }

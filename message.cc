@@ -13,8 +13,8 @@ namespace message {
 
 Message::Message(): length(0), type(MessageType::NONE), name{0},
     server_identifier{0}, port(0), reason_code(0), num_args(0),
-    arg_types(nullptr), args(nullptr),
-    HEADER_SIZE(sizeof(length) + sizeof(type)) {
+    arg_types(nullptr), args(nullptr), raw_index(0), total_bytes(0),
+    flags(0), HEADER_SIZE(sizeof(length) + sizeof(type)) {
 }
 
 Message::~Message() {
@@ -101,140 +101,165 @@ int Message::numArgs() const {
     return num_args;    
 }
 
-void Message::recvServerIdentifier(const int& socket) {
-    if (recv(socket, server_identifier, sizeof(server_identifier), MSG_WAITALL) <= 0) {
-        cerr << "recv server identifier error" << endl;
-        throw RecvError();
-    }
+void Message::parse(void* dst, const int& buffer_size) {
+    const char* buffer = raw_bytes.get() + raw_index;
+    memcpy(dst, buffer, buffer_size);
+    raw_index += buffer_size;
 }
 
-void Message::recvPort(const int& socket) {
-    if (recv(socket, &port, sizeof(port), MSG_WAITALL) <= 0) {
-        cerr << "recv port error" << endl;
-        throw RecvError();
-    }
+void Message::recvServerIdentifier() {
+    parse(server_identifier, sizeof(server_identifier));
 }
 
-void Message::recvName(const int& socket) {
-    if (recv(socket, name, sizeof(name), MSG_WAITALL) <= 0) {
-        cerr << "recv name error" << endl;
-        throw RecvError();
-    }
+void Message::recvPort() {
+    parse(&port, sizeof(port));
 }
 
-void Message::recvArgTypes(const int& socket) {
-    if (recv(socket, &num_args, sizeof(num_args), MSG_WAITALL) <= 0) {
-        cerr << "recv num args error" << endl;
-        throw RecvError();
-    } else {
-        // Free any old memory before we proceed
-        cleanup();
-
-        arg_types = new int[num_args + 1];    // +1 for null terminator
-        if (recv(socket, arg_types, num_args * sizeof(*arg_types), MSG_WAITALL) <= 0) {
-            delete [] arg_types;
-            arg_types = nullptr;
-
-            cerr << "recv arg types error" << endl;        
-            throw RecvError();
-        } else {
-            arg_types[num_args] = 0;    
-        }
-    }
+void Message::recvName() {
+    parse(name, sizeof(name));
 }
 
-void Message::recvArgs(const int& socket) {
+void Message::recvArgTypes() {
+
+    // Clean up previous args
+    cleanup();
+
+    parse(&num_args, sizeof(num_args));
+    arg_types = new int[num_args + 1];    // +1 for null terminator
+
+    for (int i = 0; i < num_args; ++i) {
+        parse(arg_types + i, sizeof(*arg_types));
+    }
+    arg_types[num_args] = 0;
+}
+
+void Message::recvArgs() {
 
     args = new void*[num_args];
     for (int i = 0; i < num_args; ++i) {
         int buffer_size = argSize(arg_types[i]);
-        void* buffer = (void*) new char[buffer_size];
-        int status = recv(socket, buffer, buffer_size, MSG_WAITALL);
-        if (status <= 0) {
-            for (int j = 0; j <= i; ++j) {
-                delete [] (char*)args[j];
-            }
-
-            delete [] arg_types;
-            delete [] args;
-
-            arg_types = nullptr;
-            args = nullptr;
-
-            cerr << "recv arg error" << endl;  
-            throw RecvError();
-        }
-
+        void* buffer = new char[buffer_size];
+        parse(buffer, buffer_size);
         args[i] = buffer;
     }
 }
 
-void Message::recvReasonCode(const int& socket) {
-    if (recv(socket, &reason_code, sizeof(reason_code), MSG_WAITALL) <= 0) {
-        cerr << "recv code error" << endl;
-        throw RecvError();
-    }
+void Message::recvReasonCode() {
+    parse(&reason_code, sizeof(reason_code));
 }
 
-void Message::recvHeader(const int& socket) {
-    // Get the length of the message
-    if (recv(socket, &length, sizeof(length), MSG_WAITALL) <= 0) {
-        cerr << "recv length error" << endl;
+void Message::recvHeader() {
+    raw_index = 0;
+    parse(&length, sizeof(length));
+    parse(&type, sizeof(type));
+}
+
+void Message::recvBytes(const int& socket, const int& max_bytes) {
+
+    const int buffer_size = max_bytes - total_bytes;
+    char* buffer = raw_bytes.get() + total_bytes;
+
+    int num_bytes = recv(socket, buffer, 1/*buffer_size*/, 0);
+    if (num_bytes <= 0) {
         throw RecvError();
     }
     
-    // Get the message type
-    if (recv(socket, &type, sizeof(type), MSG_WAITALL) <= 0) {
-        cerr << "recv message type error" << endl;
-        throw RecvError();
+    total_bytes += num_bytes;
+}
+
+void Message::recvNonBlock(const int& socket) {
+    
+    if ((flags & END_OF_HEADER) == 0) {
+        if (raw_bytes.get() == nullptr) {
+            raw_bytes.reset(new char[HEADER_SIZE]);
+        }
+
+        recvBytes(socket, HEADER_SIZE);
+        if (total_bytes < HEADER_SIZE) {
+            return;
+        }
+       
+        recvHeader();
+        total_bytes = 0;
+        flags |= END_OF_HEADER;
+
+        if (length == 0) {
+            raw_bytes.reset(nullptr);
+            flags |= END_OF_MESSAGE;
+        } else {
+            raw_bytes.reset(new char[length]);
+        }
+    }
+
+    if ((flags & END_OF_MESSAGE) == 0) {
+        recvBytes(socket, length); 
+        if (total_bytes < length) {
+            return;
+        }
+
+        recvMessage();
+        raw_bytes.reset(nullptr);
+        total_bytes = 0;
+        flags |= END_OF_MESSAGE; 
     }
 }
 
-void Message::recvMessage(const int& socket) {
+void Message::recvBlock(const int& socket) {
+    while (!eom()) {
+        recvNonBlock(socket);
+    }
+}
+
+bool Message::eom() const {
+    return flags & END_OF_MESSAGE;
+}
+
+void Message::recvMessage() {
+    raw_index = 0;
     switch (type) {
         case REGISTER:
-            this->recvServerIdentifier(socket);
-            this->recvPort(socket);
-            this->recvName(socket);
-            this->recvArgTypes(socket);
+            recvServerIdentifier();
+            recvPort();
+            recvName();
+            recvArgTypes();
             break;
         case REGISTER_SUCCESS:
-            this->recvReasonCode(socket);
+            recvReasonCode();
             break;
         case REGISTER_FAILURE:
-            this->recvReasonCode(socket);
+            recvReasonCode();
             break;
         case LOC_REQUEST:
-            this->recvName(socket);
-            this->recvArgTypes(socket);
+            recvName();
+            recvArgTypes();
             break;
         case LOC_SUCCESS:
-            this->recvServerIdentifier(socket);
-            this->recvPort(socket);
+            recvServerIdentifier();
+            recvPort();
             break;
         case LOC_FAILURE:
-            this->recvReasonCode(socket);
+            recvReasonCode();
             break;
         case EXECUTE:
-            this->recvName(socket);
-            this->recvArgTypes(socket);
-            this->recvArgs(socket);
+            recvName();
+            recvArgTypes();
+            recvArgs();
             break;
         case EXECUTE_SUCCESS:
-            this->recvName(socket);
-            this->recvArgTypes(socket);
-            this->recvArgs(socket);
+            recvName();
+            recvArgTypes();
+            recvArgs();
             break;
         case EXECUTE_FAILURE:
-            this->recvReasonCode(socket);
+            recvReasonCode();
             break;
         case LOC_CACHE:
-            this->recvName(socket);
-            this->recvArgTypes(socket);
+            recvName();
+            recvArgTypes();
             break;
         case LOC_CACHE_SUCCESS:
-            this->recvArgTypes(socket);
-            this->recvArgs(socket);
+            recvArgTypes();
+            recvArgs();
             break;
         case TERMINATE:
         case NONE:
@@ -243,18 +268,10 @@ void Message::recvMessage(const int& socket) {
     }
 }
 
-int Message::peek(const int& socket) {
-    int bytes;
-    if ((ioctl(socket, FIONREAD, &bytes) < 0) || bytes <= 0) {
-        throw PeekError();
-    }
-    return bytes;
-}
-
 void Message::sendBytes(const int& socket, const void* buffer, const int& buffer_size) {
     int sent = 0;
     do {
-        int bytes = send(socket, (char*)buffer + sent, buffer_size - sent, 0);
+        int bytes = send(socket, (char*)buffer + sent, 1 /*buffer_size - sent*/, 0);
         if (bytes < 0) {
             throw SendError();
         }

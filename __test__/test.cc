@@ -158,24 +158,13 @@ void send(Message& msg, int socketfd) {
 
 void receive(Message& msg, int socketfd, MessageType type) {
    
-    int bytes = 0;
-    while (bytes == 0) {
-        try {
-            bytes = msg.peek(socketfd);
-        } catch(Message::PeekError) {
-            cout << "lol peek error" << endl;
-            this_thread::sleep_for(chrono::milliseconds(50));
-        }
+    while (!msg.eom()) {
+        cout << "LOL" << endl;
+        msg.recvNonBlock(socketfd);
     }
-    cout << "Peeked " << bytes << " bytes" << endl;
-
-    msg.recvHeader(socketfd);
     assert (msg.getType() == type);
 
     cout << "Receiving message of length " << msg.getLength() << endl;
-    bytes = msg.peek(socketfd);
-    cout << "Peeked " << bytes << " bytes" << endl;
-    msg.recvMessage(socketfd);
     cout << "Receiving complete" << endl;
 }
 
@@ -250,6 +239,7 @@ void testExecuteClient(int socketfd) {
     Message msg;
     receive(msg, socketfd, MessageType::EXECUTE);
 
+    cout << msg.getName() << endl;
     printArgs(msg.getArgTypes(), msg.getArgs());
 
     msg.setType(MessageType::EXECUTE_FAILURE);
@@ -276,7 +266,7 @@ void runServer() {
     int client = accept(socketfd, nullptr, nullptr);
     cout << "Accept " << client << endl;
 
-    testRegisterServer(client);
+    //testRegisterServer(client);
     testExecuteServer(client);
 }
 
@@ -294,7 +284,7 @@ void runClient() {
 
     cout << "Connect " << status << " " << errno << endl;
 
-    testRegisterClient(socketfd);
+    //testRegisterClient(socketfd);
     testExecuteClient(socketfd);
 }
 
