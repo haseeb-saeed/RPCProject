@@ -265,46 +265,39 @@ int main() {
             } else {
                 auto& msg = requests[i];
                 try {
-                    if (msg.getType() == MessageType::NONE) {
-                        // Peek to see if the heaer has arrived
-                        if (msg.peek(i) < msg.HEADER_SIZE) {
-                            continue;    
-                        }
-                        msg.recvHeader(i);
+                    msg.recvNonBlock(i);
+                    if (!msg.eom()) {
+                        continue;
+                    }
 
-                        if (msg.getType() == MessageType::TERMINATE) {
+                    switch (msg.getType()) {
+                        case MessageType::REGISTER:
+                            cout << "REGISTER" << endl;
+                            registerFunction(i);
+                            requests.erase(i);
+                            break;
+                        case MessageType::LOC_REQUEST:
+                            cout << "LOC_REQUEST" << endl;
+                            getLocation(i);
+                            cleanup(i, master_set);
+                            break;
+                        case MessageType::LOC_CACHE:
+                            cout << "LOC_CACHE" << endl;
+                            getAllLocations(i);
+                            cleanup(i, master_set);
+                            break;
+                        case MessageType::TERMINATE:
                             cout << "TERMINATE" << endl;
                             terminate = true;
                             break;
-                        }
-                    } else {
-                        // Peek to see if the body has arrived
-                        if (msg.peek(i) < msg.getLength()) {
-                            continue;    
-                        }
-
-                        msg.recvMessage(i);
-                        
-                        switch (msg.getType()) {
-                            case MessageType::REGISTER:
-                                cout << "REGISTER" << endl;
-                                registerFunction(i);
-                                requests.erase(i);
-                                break;
-                            case MessageType::LOC_REQUEST:
-                                cout << "LOC_REQUEST" << endl;
-                                getLocation(i);
-                                cleanup(i, master_set);
-                                break;
-                            case MessageType::LOC_CACHE:
-                                cout << "LOC_CACHE" << endl;
-                                getAllLocations(i);
-                                cleanup(i, master_set);
-                                break;
-                            default:
-                                break;
-                        }
+                        default:
+                            break;
                     }
+
+                    if (terminate) {
+                        break;
+                    }
+
                 } catch(...) {
                     cout << "Caught some random-ass exception" << endl;
                     cleanup(i, master_set);

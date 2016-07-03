@@ -160,8 +160,7 @@ int rpcRegister(char* name, int* argTypes, skeleton f) {
     // Send message to binder
     try {
         msg.sendMessage(binder_socket);
-        msg.recvHeader(binder_socket);
-        msg.recvMessage(binder_socket);
+        msg.recvBlock(binder_socket);
     } catch(Message::SendError) {
         return ERROR_MESSAGE_SEND;
     } catch(Message::RecvError) {
@@ -244,37 +243,26 @@ int rpcExecute() {
             } else {                
                 auto& msg = requests[i];
                 try {
-                    if (msg.getType() == MessageType::NONE) {
-                        // Peek at the header and continue
-                        // if we don't have all 8 bytes
-                        if (msg.peek(i) < msg.HEADER_SIZE) {
-                            continue;
-                        }
-    
-                        msg.recvHeader(i);
-                        if (msg.getType() == MessageType::TERMINATE) {
-                            // Autheticate termination request
-                            if (i != binder_socket) {
-                                cleanup(i, master_set);
-                                continue;
-                            }
-
-                            cout << "YALL CALLED TERMINATE" << endl;
-                            terminate = true;
-                            break;
-                        } 
-                    } else {
-                        // Peek at the body and continue if
-                        // we don't have the full length
-                        if (msg.peek(i) < msg.getLength()) {
-                            continue;
-                        }
-
-                        msg.recvMessage(i);
-                        FD_CLR(i, &master_set);
-                        thread th(executeAsync, i);
-                        calls.push_back(move(th));
+                    msg.recvNonBlock(i);
+                    if (!msg.eom()) {
+                        continue;
                     }
+            
+                    if (msg.getType() == MessageType::TERMINATE) {
+                        // Autheticate termination request
+                        if (i != binder_socket) {
+                            cleanup(i, master_set);
+                            continue;
+                        }
+
+                        cout << "YALL CALLED TERMINATE" << endl;
+                        terminate = true;
+                        break;
+                    } 
+
+                    FD_CLR(i, &master_set);
+                    thread th(executeAsync, i);
+                    calls.push_back(move(th));
                 } catch(...) {
                     cleanup(i, master_set);
                     if (i == binder_socket) {

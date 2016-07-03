@@ -111,8 +111,7 @@ int callServer(const char* identifier, const char* port, const char* name,
 
     try {
         executeMsg.sendMessage(server_socket);
-        executeMsg.recvHeader(server_socket);
-        executeMsg.recvMessage(server_socket);
+        executeMsg.recvBlock(server_socket);
     } catch (Message::SendError) {
         close(server_socket);
         return ERROR_MESSAGE_SEND;
@@ -161,8 +160,7 @@ int rpcCall(char* name, int* argTypes, void** args) {
 
     try {
         msg.sendMessage(binder_socket);
-        msg.recvHeader(binder_socket);
-        msg.recvMessage(binder_socket);
+        msg.recvBlock(binder_socket);
     } catch (Message::SendError) {
         close(binder_socket);
         return ERROR_MESSAGE_SEND;
@@ -208,8 +206,7 @@ int rpcCacheCall(char* name, int* argTypes, void** args) {
 
     try {
         msg.sendMessage(binder_socket);
-        msg.recvHeader(binder_socket);
-        msg.recvMessage(binder_socket);
+        msg.recvBlock(binder_socket);
     } catch(Message::SendError) {
         close(binder_socket);
         return ERROR_MESSAGE_SEND;

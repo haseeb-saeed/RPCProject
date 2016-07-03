@@ -159,7 +159,7 @@ void Message::recvBytes(const int& socket, const int& max_bytes) {
     const int buffer_size = max_bytes - total_bytes;
     char* buffer = raw_bytes.get() + total_bytes;
 
-    int num_bytes = recv(socket, buffer, 1/*buffer_size*/, 0);
+    int num_bytes = recv(socket, buffer, buffer_size, 0);
     if (num_bytes <= 0) {
         throw RecvError();
     }
@@ -271,7 +271,7 @@ void Message::recvMessage() {
 void Message::sendBytes(const int& socket, const void* buffer, const int& buffer_size) {
     int sent = 0;
     do {
-        int bytes = send(socket, (char*)buffer + sent, 1 /*buffer_size - sent*/, 0);
+        int bytes = send(socket, (char*)buffer + sent, buffer_size - sent, 0);
         if (bytes < 0) {
             throw SendError();
         }
@@ -317,51 +317,51 @@ void Message::sendHeader(const int& socket) {
 
 void Message::sendMessage(const int& socket) {
 
-    this->sendHeader(socket);
+    sendHeader(socket);
     switch (type) {
         case REGISTER:
-            this->sendServerIdentifier(socket);
-            this->sendPort(socket);
-            this->sendName(socket);
-            this->sendArgTypes(socket);
+            sendServerIdentifier(socket);
+            sendPort(socket);
+            sendName(socket);
+            sendArgTypes(socket);
             break;
         case REGISTER_SUCCESS:
-            this->sendReasonCode(socket);
+            sendReasonCode(socket);
             break;
         case REGISTER_FAILURE:
-            this->sendReasonCode(socket);
+            sendReasonCode(socket);
             break;
         case LOC_REQUEST:
-            this->sendName(socket);
-            this->sendArgTypes(socket);
+            sendName(socket);
+            sendArgTypes(socket);
             break;
         case LOC_SUCCESS:
-            this->sendServerIdentifier(socket);
-            this->sendPort(socket);
+            sendServerIdentifier(socket);
+            sendPort(socket);
             break;
         case LOC_FAILURE:
-            this->sendReasonCode(socket);
+            sendReasonCode(socket);
             break;
         case EXECUTE:
-            this->sendName(socket);
-            this->sendArgTypes(socket);
-            this->sendArgs(socket);
+            sendName(socket);
+            sendArgTypes(socket);
+            sendArgs(socket);
             break;
         case EXECUTE_SUCCESS:
-            this->sendName(socket);
-            this->sendArgTypes(socket);
-            this->sendArgs(socket);
+            sendName(socket);
+            sendArgTypes(socket);
+            sendArgs(socket);
             break;
         case EXECUTE_FAILURE:
-            this->sendReasonCode(socket);
+            sendReasonCode(socket);
             break;
         case LOC_CACHE:
-            this->sendName(socket);
-            this->sendArgTypes(socket);
+            sendName(socket);
+            sendArgTypes(socket);
             break;
         case LOC_CACHE_SUCCESS:
-            this->sendArgTypes(socket);
-            this->sendArgs(socket);
+            sendArgTypes(socket);
+            sendArgs(socket);
             break;
         case TERMINATE:
         case NONE:
