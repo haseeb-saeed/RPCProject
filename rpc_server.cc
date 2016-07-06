@@ -265,11 +265,6 @@ int rpcExecute() {
                     calls.push_back(move(th));
                 } catch(...) {
                     cleanup(i, master_set);
-                    if (i == binder_socket) {
-                        terminate = true;
-                        ret = ERROR_LOST_CONNECTION_BINDER;
-                        break;    
-                    }
                 }
             }
         }
