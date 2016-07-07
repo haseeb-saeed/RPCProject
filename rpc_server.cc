@@ -258,7 +258,6 @@ int rpcExecute() {
                             continue;
                         }
 
-                        cout << "YALL CALLED TERMINATE" << endl;
                         terminate = true;
                         break;
                     } 

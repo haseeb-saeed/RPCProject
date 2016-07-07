@@ -55,16 +55,13 @@ void registerFunction(int socketfd) {
         // If signature doesn't exist, add it
         auto& functions = it->functions;
         if (functions.find(signature) == functions.end()) {
-            cout << "Adding signature to existing slot" << endl;
             functions.insert(signature);
             msg.setReasonCode(0);
         } else {
-            cout << "Signature already exits" << endl;
             msg.setReasonCode(WARNING_DUPLICATE_FUNCTION);
         }
     } else {
         // Create a new slot for the server and add signature
-        cout << "Adding signature to new slot" << endl;
         entry.functions.insert(signature);
         database.push_back(entry);
         msg.setReasonCode(0);
@@ -117,10 +114,8 @@ void getAllLocations(int socketfd) {
 
     // Get the location of every registered server
     for (auto& entry : database) {
-        cout << entry.name << " " << entry.port << endl;
         if (entry.functions.find(signature) != entry.functions.end()) {
             locations.push_back(make_pair(entry.name, entry.port));
-            cout << "match" << entry.name << " " << entry.port << endl;
         }
     }
 
@@ -168,7 +163,6 @@ void cleanup(int socketfd, fd_set& master_set) {
 
         if (it != database.end()) {
             database.erase(it);
-            cout << "I see a putty cat" << endl;
             if (database.size() > 0) {
                 database_index %= database.size();
             } else {
@@ -241,8 +235,8 @@ int main() {
     }
 
     int port = ntohs(addr.sin_port);
-    cout << "BINDER ADDRESS " << host->h_name << endl;
-    cout << "BINDER PORT " << port << endl;
+    cout << "BINDER_ADDRESS " << host->h_name << endl;
+    cout << "BINDER_PORT " << port << endl;
 
     fd_set master_set, read_set;
     FD_ZERO(&master_set);
@@ -281,22 +275,18 @@ int main() {
                     // close the connection after servicing
                     switch (msg.getType()) {
                         case MessageType::REGISTER:
-                            cout << "REGISTER" << endl;
                             registerFunction(i);
                             requests.erase(i);
                             break;
                         case MessageType::LOC_REQUEST:
-                            cout << "LOC_REQUEST" << endl;
                             getLocation(i);
                             cleanup(i, master_set);
                             break;
                         case MessageType::LOC_CACHE:
-                            cout << "LOC_CACHE" << endl;
                             getAllLocations(i);
                             cleanup(i, master_set);
                             break;
                         case MessageType::TERMINATE:
-                            cout << "TERMINATE" << endl;
                             terminate = true;
                             break;
                         default:
@@ -310,7 +300,6 @@ int main() {
                 } catch(...) {
                     // Usually this happens because somebody closed their
                     // connection so recv threw
-                    cout << "Caught some random-ass exception" << endl;
                     cleanup(i, master_set);
                 }
             }

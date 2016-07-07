@@ -188,9 +188,7 @@ int rpcCacheCall(char* name, int* argTypes, void** args) {
     auto& list = cache[key];
 
     // Already cached, so call server with pairs of args from list
-    cout << "Already cached" << endl;
     for (const auto& location : list) {
-        cout << location.first << " " << location.second << endl;
         if (callServer(location.first.c_str(), to_string(location.second).c_str(),
             name, argTypes, args) == 0) {
             return 0;
@@ -198,7 +196,6 @@ int rpcCacheCall(char* name, int* argTypes, void** args) {
     }
 
     // Connect to binder
-    cout << "Contacting binder" << endl;
     int binder_socket = connectToBinder();
     if (binder_socket < 0) {
         return binder_socket;
@@ -231,18 +228,14 @@ int rpcCacheCall(char* name, int* argTypes, void** args) {
     }
 
     list.clear();
-    cout << "Parsing response" << endl;
     // Parsing args from binder reply
     auto msg_args = msg.getArgs();
     for (int i = 0; i < msg.numArgs(); i += 2) {
         list.push_back(make_pair((char*)msg_args[i], *(int*)(msg_args[i + 1])));
-        cout << list[i].first << " " << list[i].second;
     }
     
-    cout << "New cached" << endl;
     // call server using the pairs of args from list
     for (const auto& location : list) {
-        cout << location.first << " " << location.second << endl;
         if (callServer(location.first.c_str(), to_string(location.second).c_str(),
             name, argTypes, args) == 0) {
             return 0;
