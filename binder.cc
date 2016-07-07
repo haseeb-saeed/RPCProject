@@ -43,7 +43,6 @@ unordered_map<int, pair<string, int>> servers;
 unordered_map<int, Message> requests;
 
 void registerFunction(int socketfd) {
-
     auto& msg = requests[socketfd];
     const string signature = getSignature(msg.getName(), msg.getArgTypes());
     auto location = make_pair(msg.getServerIdentifier(), msg.getPort());
@@ -52,6 +51,8 @@ void registerFunction(int socketfd) {
     
     auto it = find(database.begin(), database.end(), entry);
     if (it != database.end()) {
+        // Check existing slot for server
+        // If signature doesn't exist, add it
         auto& functions = it->functions;
         if (functions.find(signature) == functions.end()) {
             cout << "Adding signature to existing slot" << endl;
@@ -62,6 +63,7 @@ void registerFunction(int socketfd) {
             msg.setReasonCode(WARNING_DUPLICATE_FUNCTION);
         }
     } else {
+        // Create a new slot for the server and add signature
         cout << "Adding signature to new slot" << endl;
         entry.functions.insert(signature);
         database.push_back(entry);
@@ -76,16 +78,18 @@ void registerFunction(int socketfd) {
 }
 
 void getLocation(int socketfd) {
-
     auto& msg = requests[socketfd];
     const string signature = getSignature(msg.getName(), msg.getArgTypes());
     const int size = database.size();
     int i;
 
+    // Round-robin scheduling
+    // Each server is checked at most once
     for (i = 0; i < size; ++i) {
         const auto& entry = database[database_index++];
         database_index %= size;
 
+        // If we have a match, send the info the the client
         if (entry.functions.find(signature) != entry.functions.end()) {
             msg.setType(MessageType::LOC_SUCCESS);
             msg.setServerIdentifier(entry.name.c_str());
@@ -94,6 +98,7 @@ void getLocation(int socketfd) {
         }
     }
 
+    // No servers were found
     if (i == size) {
         msg.setType(MessageType::LOC_FAILURE);
         msg.setReasonCode(ERROR_MISSING_FUNCTION);
@@ -106,11 +111,11 @@ void getLocation(int socketfd) {
 }
 
 void getAllLocations(int socketfd) {
-
     auto& msg = requests[socketfd];
     const string signature = getSignature(msg.getName(), msg.getArgTypes());
     vector<pair<string, int>> locations;
 
+    // Get the location of every registered server
     for (auto& entry : database) {
         cout << entry.name << " " << entry.port << endl;
         if (entry.functions.find(signature) != entry.functions.end()) {
@@ -124,10 +129,12 @@ void getAllLocations(int socketfd) {
         msg.setType(MessageType::LOC_FAILURE);
         msg.setReasonCode(ERROR_MISSING_FUNCTION);
     } else {
-
+        // Send all location backs to the client
         unique_ptr<int[]> arg_types(new int[num_args + 1]);
         unique_ptr<void*[]> args(new void*[num_args]);
 
+        // Locations are sent as args in pairs
+        // First arg is the identifier, second arg is the port
         for (int i = 0; i < num_args; i += 2) {
             const auto& str = locations[i].first;
             arg_types[i] = (ARG_CHAR << 16) | (str.length() + 1);
@@ -149,12 +156,11 @@ void getAllLocations(int socketfd) {
 }
 
 void cleanup(int socketfd, fd_set& master_set) {
-
     close(socketfd);    
     requests.erase(socketfd);
     FD_CLR(socketfd, &master_set);
 
-    // Remove all entries associated with the server
+    // Remove the entry for the database if it exists
     if (servers.find(socketfd) != servers.end()) {
         const auto& location = servers[socketfd];
         const Entry entry(location);
@@ -175,7 +181,6 @@ void cleanup(int socketfd, fd_set& master_set) {
 }
 
 int main() {
-
     addrinfo host_info, *host_info_list;
     memset(&host_info, 0, sizeof host_info);
     host_info.ai_family = AF_UNSPEC;
@@ -245,11 +250,11 @@ int main() {
     int maxfd = socketfd;
 
     for(;;) {
-
         bool terminate = false;
         read_set = master_set;
         select(maxfd + 1, &read_set, nullptr, nullptr, nullptr);
 
+        // Go through the sockets with data on them
         for (int i = 0; i <= maxfd; ++i) {
             if (!FD_ISSET(i, &read_set)) {
                 continue;    
@@ -263,6 +268,7 @@ int main() {
                     maxfd = max(maxfd, client);
                 }
             } else {
+                // Receive the request
                 auto& msg = requests[i];
                 try {
                     msg.recvNonBlock(i);
@@ -270,6 +276,9 @@ int main() {
                         continue;
                     }
 
+                    // Handle the request
+                    // If the request is not a server request,
+                    // close the connection after servicing
                     switch (msg.getType()) {
                         case MessageType::REGISTER:
                             cout << "REGISTER" << endl;
@@ -299,6 +308,8 @@ int main() {
                     }
 
                 } catch(...) {
+                    // Usually this happens because somebody closed their
+                    // connection so recv threw
                     cout << "Caught some random-ass exception" << endl;
                     cleanup(i, master_set);
                 }

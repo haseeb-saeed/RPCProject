@@ -47,19 +47,22 @@ class Message {
     };
 
 public:
-    Message();                          // Default constructor
-    ~Message();                         // Destructor
+    Message();
+    ~Message();
     Message(const Message& msg) = delete;
     Message& operator=(const Message& msg) = delete;
 
+    // Exceptions to throw
     struct PeekError {};
     struct SendError {};
     struct RecvError {};
 
+    // Send/receive a message
     void sendMessage(const int& socket);
     void recvBlock(const int& socket);
     void recvNonBlock(const int& socket);
 
+    // Setters
     void setType(const MessageType& type);
     void setName(const char* name);
     void setServerIdentifier(const char* identifier);
@@ -68,6 +71,7 @@ public:
     void setArgTypes(int* arg_types);
     void setArgs(void** args);
 
+    // Getters
     MessageType getType() const;
     const char* getName() const;
     const char* getServerIdentifier() const;
@@ -82,6 +86,7 @@ public:
 
 
 private:
+    // Receiving helper functions
     void recvBytes(const int& socket, const int& max_bytes);
     void recvHeader();
     void recvMessage();
@@ -92,6 +97,7 @@ private:
     void recvArgTypes();
     void recvArgs();
 
+    // Sending helper functions
     void sendBytes(const int& socket, const void* buffer, const int& buffer_size);
     void sendHeader(const int& socket);
     void sendName(const int& socket);
@@ -101,6 +107,7 @@ private:
     void sendArgTypes(const int& socket);
     void sendArgs(const int& socket);
 
+    // Miscellaneous helper functions
     void recalculateLength();
     void cleanup();
     void parse(void* dst, const int& buffer_size);

@@ -38,7 +38,6 @@ static int host_port = 0;
 static char host_name[48];
 
 int rpcInit() {
-
     // Get environment variables
     const char* binder_addr = getenv("BINDER_ADDRESS");
     const char* binder_port = getenv("BINDER_PORT");
@@ -91,6 +90,7 @@ int rpcInit() {
         return ERROR_ADDRINFO;
     }
 
+    // Bind socket
     status = bind(client_socket, addr->ai_addr, addr->ai_addrlen);
     freeaddrinfo(addr);
     if (status < 0) {
@@ -101,6 +101,7 @@ int rpcInit() {
         return ERROR_SOCKET_BIND;    
     }
    
+    // Listen for connections
     if (listen(client_socket, 5) < 0) {
         close(binder_socket);
         close(client_socket);
@@ -144,7 +145,7 @@ int rpcInit() {
 }
 
 int rpcRegister(char* name, int* argTypes, skeleton f) {
-
+    // If we are not connected to the binder
     if (binder_socket == SOCK_INVALID) {
         return ERROR_NOT_CONNECTED_BINDER;
     }
@@ -175,10 +176,11 @@ int rpcRegister(char* name, int* argTypes, skeleton f) {
 }
 
 static void executeAsync(int client) {
-    
+    // Get the request and function signature
     auto& msg = requests[client];
     string key = getSignature(msg.getName(), msg.getArgTypes());
 
+    // Execute the function if it exists
     try {
         if (functions[key] == nullptr) {
             msg.setType(MessageType::EXECUTE_FAILURE);
@@ -200,14 +202,13 @@ static void executeAsync(int client) {
 }
 
 void cleanup(int socketfd, fd_set& master_set) {
-
     close(socketfd);
     requests.erase(socketfd);
     FD_CLR(socketfd, &master_set);
 }
 
 int rpcExecute() {
-    
+    // If the server is not running
     if (client_socket == SOCK_INVALID) {
         return ERROR_SERVER_NOT_RUNNING;
     }
@@ -220,7 +221,6 @@ int rpcExecute() {
     int ret = 0;
 
     for (;;) {
-
         bool terminate = false;
         read_set = master_set;
         if (select(max_socket + 1, &read_set, nullptr, nullptr, nullptr) < 0) {
@@ -228,6 +228,7 @@ int rpcExecute() {
             break;
         }
 
+        // Service incoming requests
         for (int i = 0; i <= max_socket; ++i) {
             if (!FD_ISSET(i, &read_set)) {
                 continue;
@@ -240,7 +241,8 @@ int rpcExecute() {
                     FD_SET(client, &master_set);
                     max_socket = max(max_socket, client); 
                 }
-            } else {                
+            } else {
+                // Get the request message         
                 auto& msg = requests[i];
                 try {
                     msg.recvNonBlock(i);
@@ -248,6 +250,7 @@ int rpcExecute() {
                         continue;
                     }
             
+                    // If terminate request
                     if (msg.getType() == MessageType::TERMINATE) {
                         // Autheticate termination request
                         if (i != binder_socket) {
@@ -260,10 +263,12 @@ int rpcExecute() {
                         break;
                     } 
 
+                    // Otherwise, it's an execute request
                     FD_CLR(i, &master_set);
                     thread th(executeAsync, i);
                     calls.push_back(move(th));
                 } catch(...) {
+                    // Usually end up here if a connection closed
                     cleanup(i, master_set);
                 }
             }
